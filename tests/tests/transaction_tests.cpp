@@ -1,3 +1,4 @@
+#include <codecvt>
 #include <boost/test/unit_test.hpp>
 
 #include <graphene/utilities/key_conversion.hpp>
@@ -53,14 +54,89 @@ BOOST_AUTO_TEST_CASE(test_two)
 
     fc::ecc::compact_signature sig = private_key->sign_compact(enc.result());
 
-    BOOST_CHECK_EQUAL("2004ec9213ec914e5fcb1964ee3a2fc03666de517984ef3d84af73df32206f899d1f3b01eff2ec81e86c57b3cb77e16176bcb5c82a82e7c5a0e1037b2b834035c7", fc::json::to_string(sig));
+    BOOST_CHECK_EQUAL("2004ec9213ec914e5fcb1964ee3a2fc03666de517984ef3d84af73df32206f899d1f3b01eff2ec81e86c57b3cb77e161"
+                      "76bcb5c82a82e7c5a0e1037b2b834035c7",
+                      fc::json::to_string(sig));
 }
 
 BOOST_AUTO_TEST_CASE(test_sha)
 {
     const fc::sha256 hash = fc::sha256::hash("text text text");
+    BOOST_CHECK_EQUAL(hash, fc::sha256("95e4b20f5e669fab5fdaa2fc9f691192118f72900f9906f13b1883e2fb57aa43"));
+}
 
-    const fc::sha256 hash2("95e4b20f5e669fab5fdaa2fc9f691192118f72900f9906f13b1883e2fb57aa43");
+std::string HexEscape(const std::string& buf)
+{
+    std::string result(buf.size() * 3 + 1, '\0');
+    const char hex[] = "0123456789ABCDEF";
 
-    BOOST_CHECK_EQUAL(hash, hash2);
+    for (size_t i = 0; i < buf.size(); ++i)
+    {
+        char* dest = &result[i * 3];
+        *dest++ = hex[(buf[i] >> 4) & 0xF];
+        *dest++ = hex[buf[i] & 0xF];
+        *dest = ' ';
+    }
+    return result;
+}
+
+std::string HexEscape(const unsigned char* buf)
+{
+    size_t size = strlen((const char*)buf);
+
+    std::string result(size * 3 + 1, '\0');
+    const char hex[] = "0123456789ABCDEF";
+
+    for (size_t i = 0; i < size; ++i)
+    {
+        char* dest = &result[i * 3];
+        *dest++ = hex[(buf[i] >> 4) & 0xF];
+        *dest++ = hex[buf[i] & 0xF];
+        *dest = ' ';
+    }
+    return result;
+}
+
+BOOST_AUTO_TEST_CASE(test_signing_sha256)
+{
+    const fc::optional<fc::ecc::private_key> private_key
+        = graphene::utilities::wif_to_key("5JCvGL2GVVpjDrKzbKWPHEvuwFs5HdEGwr4brp8RQiwrpEFcZNP");
+
+    const fc::sha256 hash = fc::sha256::hash("text text text");
+
+    fc::ecc::compact_signature sig = private_key->sign_compact(hash);
+
+    // clang-format off
+    BOOST_CHECK_EQUAL("1f29a517dfd87ea59774b0122eb8c75eff84ad5fed949c0588f91651925acf785714c332829b54bfec779f51e4a9f0a369fe7b259fe85276148447593542013a18", fc::json::to_string(sig));
+    // clang-format on
+}
+
+BOOST_AUTO_TEST_CASE(test_signing_text)
+{
+    const fc::optional<fc::ecc::private_key> private_key
+        = graphene::utilities::wif_to_key("5JCvGL2GVVpjDrKzbKWPHEvuwFs5HdEGwr4brp8RQiwrpEFcZNP");
+
+    const fc::sha256 hash = fc::sha256::hash("text text text");
+
+    fc::ecc::compact_signature sig = private_key->sign_compact(hash);
+
+    std::cout << fc::json::to_string(sig) << "\n";
+
+    scorum::protocol::public_key_type recover = fc::ecc::public_key(sig, hash);
+
+    BOOST_CHECK_EQUAL("SCR5bgzuweaHx231escVuPVxgudSyUWdKAH7fKgxZfp3nKSirzFRa", (std::string)recover);
+}
+
+BOOST_AUTO_TEST_CASE(test_deser_signature)
+{
+    const fc::optional<fc::ecc::private_key> private_key
+        = graphene::utilities::wif_to_key("5JCvGL2GVVpjDrKzbKWPHEvuwFs5HdEGwr4brp8RQiwrpEFcZNP");
+
+    const fc::sha256 hash = fc::sha256::hash("text text text");
+
+    std::cout << fc::json::to_string(sig) << "\n";
+
+    scorum::protocol::public_key_type recover = fc::ecc::public_key(sig, hash);
+
+    BOOST_CHECK_EQUAL("SCR5bgzuweaHx231escVuPVxgudSyUWdKAH7fKgxZfp3nKSirzFRa", (std::string)recover);
 }
