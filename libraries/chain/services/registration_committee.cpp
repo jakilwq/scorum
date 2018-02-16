@@ -80,8 +80,7 @@ dbs_registration_committee::create_committee(const std::vector<account_name_type
     return get_committee();
 }
 
-const registration_committee_member_object&
-dbs_registration_committee::add_member(const account_name_type& account_name)
+void dbs_registration_committee::add_member(const account_name_type& account_name)
 {
     // to fill empty committee it is used create_committee
     FC_ASSERT(!get_committee().empty(), "No committee to add member.");
@@ -90,7 +89,7 @@ dbs_registration_committee::add_member(const account_name_type& account_name)
 
     const account_object& accout = account_service.get_account(account_name);
 
-    return _add_member(accout);
+    _add_member(accout);
 }
 
 void dbs_registration_committee::exclude_member(const account_name_type& account_name)

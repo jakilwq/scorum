@@ -1,5 +1,6 @@
 #pragma once
 
+#include <scorum/chain/services/committee_service.hpp>
 #include <scorum/chain/services/dbs_base.hpp>
 #include <vector>
 #include <set>
@@ -10,7 +11,7 @@
 namespace scorum {
 namespace chain {
 
-struct registration_committee_service_i
+struct registration_committee_service_i : public committee_service_i
 {
     using registration_committee_member_refs_type = std::vector<registration_committee_member_object::cref_type>;
 
@@ -20,10 +21,6 @@ struct registration_committee_service_i
 
     virtual registration_committee_member_refs_type create_committee(const std::vector<account_name_type>& accounts)
         = 0;
-
-    virtual const registration_committee_member_object& add_member(const account_name_type&) = 0;
-
-    virtual void exclude_member(const account_name_type&) = 0;
 
     using member_info_modifier_type = std::function<void(registration_committee_member_object&)>;
     virtual void update_member_info(const registration_committee_member_object&,
@@ -35,8 +32,8 @@ struct registration_committee_service_i
     virtual size_t get_members_count() const = 0;
 };
 
-/** DB service for operations with registration_committee_* objects
- *  --------------------------------------------
+/**
+ * DB service for operations with registration_committee_* objects
  */
 class dbs_registration_committee : public dbs_base, public registration_committee_service_i
 {
@@ -54,7 +51,7 @@ public:
 
     registration_committee_member_refs_type create_committee(const std::vector<account_name_type>& accounts) override;
 
-    const registration_committee_member_object& add_member(const account_name_type&) override;
+    void add_member(const account_name_type&) override;
 
     void exclude_member(const account_name_type&) override;
 
