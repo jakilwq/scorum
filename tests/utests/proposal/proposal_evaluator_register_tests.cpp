@@ -7,6 +7,7 @@
 
 #include <fc/static_variant.hpp>
 
+#include <functional>
 #include <hippomocks.h>
 
 struct committee_service_i
@@ -81,17 +82,17 @@ struct committee_factory
         dev
     };
 
-    fc::flat_map<committee_type, std::unique_ptr<committee_service_i>> storage;
+    fc::flat_map<committee_type, committee_service_i*> storage;
 };
 
 template <> committee_service_i& committee_factory::obtain_committee(const proposal_operation<reg_committee_service>&)
 {
-    return *(storage[committee_type::reg]);
+    return *storage[committee_type::reg];
 }
 
 template <> committee_service_i& committee_factory::obtain_committee(const proposal_operation<dev_committee_service>&)
 {
-    return *(storage[committee_type::dev]);
+    return *storage[committee_type::dev];
 }
 
 template <typename OperationType>
@@ -118,17 +119,26 @@ struct proposal_invite_evaluator : public scorum::chain::evaluator_impl<committe
 
 struct fixture
 {
+    MockRepository mocks;
+
+    committee_service_i* reg_committee = mocks.Mock<committee_service_i>();
+    committee_service_i* dev_committee = mocks.Mock<committee_service_i>();
+
     committee_factory factory;
+
+    std::vector<std::string> log;
 
     fixture()
     {
-        factory.storage[committee_factory::dev] = std::unique_ptr<dev_committee_service>(new dev_committee_service);
-        factory.storage[committee_factory::reg] = std::unique_ptr<reg_committee_service>(new reg_committee_service);
+        factory.storage[committee_factory::dev] = dev_committee;
+        factory.storage[committee_factory::reg] = reg_committee;
     }
 };
 
 BOOST_FIXTURE_TEST_CASE(evaluator_register_test, fixture)
 {
+    std::vector<std::string> log;
+
     scorum::chain::evaluator_registry<proposal_operations, committee_factory> reg(factory);
 
     reg.register_evaluator<proposal_invite_evaluator<reg_commitee_invite_member_operation>>();
@@ -139,6 +149,9 @@ BOOST_FIXTURE_TEST_CASE(evaluator_register_test, fixture)
 
     auto& evaluator1 = reg.get_evaluator(op1);
     auto& evaluator2 = reg.get_evaluator(op2);
+
+    mocks.ExpectCall(reg_committee, committee_service_i::invite_member);
+    mocks.ExpectCall(dev_committee, committee_service_i::invite_member);
 
     evaluator1.apply(op1);
     evaluator2.apply(op2);
