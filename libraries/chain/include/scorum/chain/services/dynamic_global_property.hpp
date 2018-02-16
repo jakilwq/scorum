@@ -11,6 +11,10 @@ struct dynamic_global_property_service_i
 {
     virtual const dynamic_global_property_object& get() const = 0;
     virtual fc::time_point_sec head_block_time() const = 0;
+
+    virtual void set_invite_quorum(uint64_t quorum) = 0;
+    virtual void set_dropout_quorum(uint64_t quorum) = 0;
+    virtual void set_quorum(uint64_t quorum) = 0;
 };
 
 class dbs_dynamic_global_property : public dbs_base, public dynamic_global_property_service_i
@@ -25,9 +29,9 @@ public:
 
     virtual fc::time_point_sec head_block_time() const override;
 
-    void set_invite_quorum(uint64_t quorum);
-    void set_dropout_quorum(uint64_t quorum);
-    void set_quorum(uint64_t quorum);
+    virtual void set_invite_quorum(uint64_t quorum) override;
+    virtual void set_dropout_quorum(uint64_t quorum) override;
+    virtual void set_quorum(uint64_t quorum) override;
 };
 
 } // namespace chain
