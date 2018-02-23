@@ -1,6 +1,6 @@
 #pragma once
 
-#include <scorum/chain/services/committee_service.hpp>
+#include <scorum/protocol/committee.hpp>
 #include <scorum/chain/services/dbs_base.hpp>
 #include <vector>
 #include <set>
@@ -11,7 +11,7 @@
 namespace scorum {
 namespace chain {
 
-struct registration_committee_service_i : public committee_service_i
+struct registration_committee_service_i : public protocol::registration_committee_i
 {
     using registration_committee_member_refs_type = std::vector<registration_committee_member_object::cref_type>;
 

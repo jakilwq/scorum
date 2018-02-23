@@ -17,6 +17,11 @@ struct committee_service_i
     virtual void change_quorum() = 0;
 };
 
+struct dev_committee_service_i : public committee_service_i
+{
+    virtual void transfer() = 0;
+};
+
 struct reg_committee_service : public committee_service_i
 {
     virtual void invite_member(const std::string& name) override
@@ -32,8 +37,12 @@ struct reg_committee_service : public committee_service_i
     }
 };
 
-struct dev_committee_service : public committee_service_i
+struct dev_committee_service : public dev_committee_service_i
 {
+    virtual void transfer() override
+    {
+    }
+
     virtual void invite_member(const std::string& name) override
     {
     }
@@ -50,19 +59,27 @@ struct dev_committee_service : public committee_service_i
 template <typename CommitteeType> struct proposal_operation
 {
     typedef CommitteeType committee_type;
+    typedef proposal_operation<CommitteeType> base_operation_type;
 };
 
-template <typename BaseOperation> struct proposal_invite_operation : public BaseOperation
+template <typename CommitteeType> struct proposal_invite_operation : public proposal_operation<CommitteeType>
 {
-    typedef BaseOperation base_operation_type;
 };
 
-using reg_commitee_invite_member_operation = proposal_invite_operation<proposal_operation<reg_committee_service>>;
-using dev_commitee_invite_member_operation = proposal_invite_operation<proposal_operation<dev_committee_service>>;
+template <typename CommitteeType> struct proposal_transfer_operation
+{
+    typedef CommitteeType committee_type;
+    typedef proposal_transfer_operation<CommitteeType> base_operation_type;
+};
+
+using reg_commitee_invite_member_operation = proposal_invite_operation<reg_committee_service>;
+using dev_commitee_invite_member_operation = proposal_invite_operation<dev_committee_service>;
+using dev_commitee_transfer_operation = proposal_transfer_operation<dev_committee_service>;
 
 // clang-format off
 using proposal_operations = fc::static_variant<reg_commitee_invite_member_operation,
-                                               dev_commitee_invite_member_operation>;
+                                               dev_commitee_invite_member_operation,
+                                               dev_commitee_transfer_operation>;
 // clang-format on
 
 struct committee_factory
@@ -76,23 +93,33 @@ struct committee_factory
         FC_THROW_EXCEPTION(fc::assert_exception, "Operation not implemented.");
     }
 
-    enum committee_type
+    template <typename C> C& obtain()
     {
-        reg,
-        dev
-    };
+        FC_THROW_EXCEPTION(fc::assert_exception, "Operation not implemented.");
+    }
 
-    fc::flat_map<committee_type, committee_service_i*> storage;
+    template <typename C, typename O> C& obtain(const O&)
+    {
+        FC_THROW_EXCEPTION(fc::assert_exception, "Operation not implemented.");
+    }
+
+    committee_service_i* _reg_committee_service;
+    dev_committee_service_i* _dev_committee_service;
 };
 
 template <> committee_service_i& committee_factory::obtain_committee(const proposal_operation<reg_committee_service>&)
 {
-    return *storage[committee_type::reg];
+    return *_reg_committee_service;
 }
 
 template <> committee_service_i& committee_factory::obtain_committee(const proposal_operation<dev_committee_service>&)
 {
-    return *storage[committee_type::dev];
+    return *_dev_committee_service;
+}
+
+template <> dev_committee_service_i& committee_factory::obtain()
+{
+    return *_dev_committee_service;
 }
 
 template <typename OperationType>
@@ -117,12 +144,33 @@ struct proposal_invite_evaluator : public scorum::chain::evaluator_impl<committe
     }
 };
 
+template <typename OperationType>
+struct proposal_transfer_evaluator : public scorum::chain::evaluator_impl<committee_factory,
+                                                                          proposal_transfer_evaluator<OperationType>,
+                                                                          proposal_operations>
+{
+    typedef OperationType operation_type;
+
+    proposal_transfer_evaluator(committee_factory& r)
+        : scorum::chain::
+              evaluator_impl<committee_factory, proposal_transfer_evaluator<OperationType>, proposal_operations>(r)
+    {
+    }
+
+    void do_apply(const operation_type&)
+    {
+        auto& committee = this->db().template obtain<dev_committee_service_i>();
+
+        committee.transfer();
+    }
+};
+
 struct fixture
 {
     MockRepository mocks;
 
     committee_service_i* reg_committee = mocks.Mock<committee_service_i>();
-    committee_service_i* dev_committee = mocks.Mock<committee_service_i>();
+    dev_committee_service_i* dev_committee = mocks.Mock<dev_committee_service_i>();
 
     committee_factory factory;
 
@@ -130,8 +178,8 @@ struct fixture
 
     fixture()
     {
-        factory.storage[committee_factory::dev] = dev_committee;
-        factory.storage[committee_factory::reg] = reg_committee;
+        factory._dev_committee_service = dev_committee;
+        factory._reg_committee_service = reg_committee;
     }
 };
 
@@ -143,16 +191,21 @@ BOOST_FIXTURE_TEST_CASE(evaluator_register_test, fixture)
 
     reg.register_evaluator<proposal_invite_evaluator<reg_commitee_invite_member_operation>>();
     reg.register_evaluator<proposal_invite_evaluator<dev_commitee_invite_member_operation>>();
+    reg.register_evaluator<proposal_transfer_evaluator<dev_commitee_transfer_operation>>();
 
     reg_commitee_invite_member_operation op1;
     dev_commitee_invite_member_operation op2;
+    dev_commitee_transfer_operation op3;
 
     auto& evaluator1 = reg.get_evaluator(op1);
     auto& evaluator2 = reg.get_evaluator(op2);
+    auto& evaluator3 = reg.get_evaluator(op3);
 
     mocks.ExpectCall(reg_committee, committee_service_i::invite_member);
-    mocks.ExpectCall(dev_committee, committee_service_i::invite_member);
+    mocks.ExpectCall(dev_committee, dev_committee_service_i::invite_member);
+    mocks.ExpectCall(dev_committee, dev_committee_service_i::transfer);
 
     evaluator1.apply(op1);
     evaluator2.apply(op2);
+    evaluator3.apply(op3);
 }

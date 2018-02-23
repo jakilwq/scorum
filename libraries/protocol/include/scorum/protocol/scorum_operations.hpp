@@ -5,6 +5,7 @@
 #include <scorum/protocol/chain_properties.hpp>
 #include <scorum/protocol/comment.hpp>
 #include <scorum/protocol/types.hpp>
+#include <scorum/protocol/committee_proposal_operations.hpp>
 
 #include <fc/utf8.hpp>
 #include <fc/crypto/ripemd160.hpp>
@@ -757,6 +758,24 @@ struct proposal_vote_operation : public base_operation
     void validate() const;
 };
 
+struct proposal_create_operation2 : public base_operation
+{
+    account_name_type creator;
+
+    proposal_operations operation;
+
+    uint32_t lifetime_sec = 0;
+
+    void get_required_active_authorities(flat_set<account_name_type>& a) const
+    {
+        a.insert(creator);
+    }
+
+    void validate() const
+    {
+    }
+};
+
 struct atomicswap_initiate_operation : public base_operation
 {
     enum operation_type : bool
@@ -808,6 +827,16 @@ struct atomicswap_refund_operation : public base_operation
     {
         a.insert(participant);
     }
+};
+
+struct a_operation
+{
+    account_name_type account;
+};
+
+struct b_operation
+{
+    account_name_type account;
 };
 
 } // namespace protocol
@@ -897,6 +926,11 @@ FC_REFLECT( scorum::protocol::proposal_create_operation,
             (creator)
             (data)
             (action)
+            (lifetime_sec))
+
+FC_REFLECT( scorum::protocol::proposal_create_operation2,
+            (creator)
+            (operation)
             (lifetime_sec))
 
 // clang-format on

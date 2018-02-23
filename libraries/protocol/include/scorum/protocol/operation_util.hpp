@@ -15,13 +15,18 @@
 // functions related to your operation type
 //
 #define DECLARE_OPERATION_TYPE(OperationType)                                                                          \
+    DECLARE_OPERATION_X_TYPE(OperationType)                                                                            \
+    DECLARE_OPERATION_VALIDATOR(OperationType)
+
+#define DECLARE_OPERATION_X_TYPE(OperationType)                                                                        \
     namespace fc {                                                                                                     \
                                                                                                                        \
     void to_variant(const OperationType&, fc::variant&);                                                               \
     void from_variant(const fc::variant&, OperationType&);                                                             \
                                                                                                                        \
-    } /* fc */                                                                                                         \
-                                                                                                                       \
+    } /* fc */
+
+#define DECLARE_OPERATION_VALIDATOR(OperationType)                                                                     \
     namespace scorum {                                                                                                 \
     namespace protocol {                                                                                               \
                                                                                                                        \

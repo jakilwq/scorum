@@ -25,16 +25,18 @@ proposal_vote_evaluator2::proposal_vote_evaluator2(data_service_factory_i& servi
     , _committee_service(db().registration_committee_service())
     , _properties_service(db().dynamic_global_property_service())
 {
-    evaluators.set(proposal_action::invite,
-                   std::bind(&proposal_vote_evaluator2::invite_evaluator, this, std::placeholders::_1));
-    evaluators.set(proposal_action::dropout,
-                   std::bind(&proposal_vote_evaluator2::dropout_evaluator, this, std::placeholders::_1));
-    evaluators.set(proposal_action::change_invite_quorum,
-                   std::bind(&proposal_vote_evaluator2::change_invite_quorum_evaluator, this, std::placeholders::_1));
-    evaluators.set(proposal_action::change_dropout_quorum,
-                   std::bind(&proposal_vote_evaluator2::change_dropout_quorum_evaluator, this, std::placeholders::_1));
-    evaluators.set(proposal_action::change_quorum,
-                   std::bind(&proposal_vote_evaluator2::change_quorum_evaluator, this, std::placeholders::_1));
+    //    evaluators.set(proposal_action::invite,
+    //                   std::bind(&proposal_vote_evaluator2::invite_evaluator, this, std::placeholders::_1));
+    //    evaluators.set(proposal_action::dropout,
+    //                   std::bind(&proposal_vote_evaluator2::dropout_evaluator, this, std::placeholders::_1));
+    //    evaluators.set(proposal_action::change_invite_quorum,
+    //                   std::bind(&proposal_vote_evaluator2::change_invite_quorum_evaluator, this,
+    //                   std::placeholders::_1));
+    //    evaluators.set(proposal_action::change_dropout_quorum,
+    //                   std::bind(&proposal_vote_evaluator2::change_dropout_quorum_evaluator, this,
+    //                   std::placeholders::_1));
+    //    evaluators.set(proposal_action::change_quorum,
+    //                   std::bind(&proposal_vote_evaluator2::change_quorum_evaluator, this, std::placeholders::_1));
 }
 
 void proposal_vote_evaluator2::do_apply(const proposal_vote_evaluator2::operation_type& op)
@@ -84,7 +86,7 @@ void proposal_vote_evaluator2::execute_proposal(const proposal_object& proposal)
 {
     if (is_quorum(proposal))
     {
-        evaluators.execute(proposal);
+        //        evaluators.execute(proposal);
         _proposal_service.remove(proposal);
     }
 }

@@ -3,6 +3,7 @@
 #include <scorum/protocol/scorum_operations.hpp>
 
 #include <scorum/chain/evaluators/evaluator.hpp>
+#include <scorum/chain/evaluators/evaluator_registry.hpp>
 
 #include <scorum/protocol/types.hpp>
 
@@ -21,10 +22,6 @@ class data_service_factory_i;
 class proposal_object;
 
 using proposal_action = scorum::protocol::proposal_action;
-
-struct proposal_invite_operation
-{
-};
 
 class proposal_vote_evaluator2 : public evaluator_impl<data_service_factory_i, proposal_vote_evaluator2>
 {
@@ -86,7 +83,7 @@ protected:
     fc::flat_set<account_name_type> removed_members;
 
 private:
-    proposal_evaluators_register evaluators;
+    //    proposal_evaluators_register evaluators;
 };
 
 } // namespace chain

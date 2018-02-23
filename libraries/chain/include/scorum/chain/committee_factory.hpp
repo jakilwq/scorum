@@ -1,7 +1,11 @@
-#pragma once 
+#pragma once
+
+#include <scorum/protocol/committee.hpp>
+#include <scorum/protocol/proposal_operations.hpp>
+
+#include <scorum/chain/services/registration_committee.hpp>
 
 #include <scorum/chain/data_service_factory.hpp>
-#include <scorum/chain/evaluators/proposal_operations.hpp>
 #include <fc/exception/exception.hpp>
 
 namespace scorum {
@@ -14,7 +18,8 @@ struct committee_factory
     {
     }
 
-    template <typename OperationType> committee_service_i& obtain_committee(const OperationType& o)
+    template <typename OperationType>
+    protocol::committee_service_i& obtain_committee(const OperationType&)
     {
         FC_THROW_EXCEPTION(fc::assert_exception, "Operation not implemented.");
     }
@@ -23,7 +28,8 @@ struct committee_factory
 };
 
 template <>
-committee_service_i& committee_factory::obtain_committee(const proposal_operation<registration_committee_service_i>&)
+protocol::committee_service_i&
+committee_factory::obtain_committee(const protocol::proposal_operation<protocol::registration_committee_i>&)
 {
     return _factory.registration_committee_service();
 }

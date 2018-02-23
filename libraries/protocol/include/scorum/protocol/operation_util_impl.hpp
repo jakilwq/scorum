@@ -19,7 +19,8 @@ struct from_operation
     }
 
     typedef void result_type;
-    template <typename T> void operator()(const T& v) const
+    template <typename T>
+    void operator()(const T& v) const
     {
         auto name = name_from_type(fc::get_typename<T>::name());
         var = variant(std::make_pair(name, v));
@@ -35,7 +36,8 @@ struct get_operation_name
     }
 
     typedef void result_type;
-    template <typename T> void operator()(const T& v) const
+    template <typename T>
+    void operator()(const T& v) const
     {
         name = name_from_type(fc::get_typename<T>::name());
     }
@@ -48,7 +50,8 @@ namespace protocol {
 struct operation_validate_visitor
 {
     typedef void result_type;
-    template <typename T> void operator()(const T& v) const
+    template <typename T>
+    void operator()(const T& v) const
     {
         v.validate();
     }
@@ -74,7 +77,8 @@ struct operation_get_required_auth_visitor
     {
     }
 
-    template <typename T> void operator()(const T& v) const
+    template <typename T>
+    void operator()(const T& v) const
     {
         v.get_required_active_authorities(active);
         v.get_required_owner_authorities(owner);
@@ -90,6 +94,10 @@ struct operation_get_required_auth_visitor
 // functions related to your operation type
 //
 #define DEFINE_OPERATION_TYPE(OperationType)                                                                           \
+    DEFINE_OPERATION_X_TYPE(OperationType)                                                                             \
+    DEFINE_OPERATION_VALIDATOR(OperationType)
+
+#define DEFINE_OPERATION_X_TYPE(OperationType)                                                                         \
     namespace fc {                                                                                                     \
                                                                                                                        \
     void to_variant(const OperationType& var, fc::variant& vo)                                                         \
@@ -125,8 +133,9 @@ struct operation_get_required_auth_visitor
         }                                                                                                              \
         vo.visit(fc::to_static_variant(ar[1]));                                                                        \
     }                                                                                                                  \
-    }                                                                                                                  \
-                                                                                                                       \
+    }
+
+#define DEFINE_OPERATION_VALIDATOR(OperationType)                                                                      \
     namespace scorum {                                                                                                 \
     namespace protocol {                                                                                               \
                                                                                                                        \
