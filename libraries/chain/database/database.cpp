@@ -56,6 +56,8 @@
 #include <scorum/chain/services/witness.hpp>
 #include <scorum/chain/services/witness_schedule.hpp>
 
+#include <scorum/chain/services/proposal_executor.hpp>
+
 #include <scorum/chain/database/block_tasks/process_comments_cashout.hpp>
 #include <scorum/chain/database/block_tasks/process_funds.hpp>
 #include <scorum/chain/database/block_tasks/process_vesting_withdrawals.hpp>
@@ -1081,7 +1083,10 @@ void database::initialize_evaluators()
     _my->_evaluator_registry.register_evaluator<vote_evaluator>();
     _my->_evaluator_registry.register_evaluator<witness_update_evaluator>();
     _my->_evaluator_registry.register_evaluator<proposal_create_evaluator>();
-    _my->_evaluator_registry.register_evaluator<proposal_vote_evaluator>();
+
+    _my->_evaluator_registry.register_evaluator<proposal_vote_evaluator>(
+        new proposal_vote_evaluator(*this, this->obtain_service<dbs_proposal_executor>()));
+
     _my->_evaluator_registry.register_evaluator<proposal_create_evaluator>();
     _my->_evaluator_registry.register_evaluator<set_withdraw_scorumpower_route_to_dev_pool_evaluator>();
     _my->_evaluator_registry.register_evaluator<set_withdraw_scorumpower_route_to_account_evaluator>();

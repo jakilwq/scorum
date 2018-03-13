@@ -12,7 +12,6 @@
 #include <scorum/chain/services/hardfork_property.hpp>
 #include <scorum/chain/services/escrow.hpp>
 #include <scorum/chain/services/proposal.hpp>
-#include <scorum/chain/services/proposal_executor.hpp>
 #include <scorum/chain/services/registration_committee.hpp>
 #include <scorum/chain/services/registration_pool.hpp>
 #include <scorum/chain/services/reward.hpp>
@@ -39,7 +38,6 @@ DATA_SERVICE_FACTORY_IMPL(
         (hardfork_property)
         (escrow)
         (proposal)
-        (proposal_executor)
         (registration_committee)
         (development_committee)
         (registration_pool)

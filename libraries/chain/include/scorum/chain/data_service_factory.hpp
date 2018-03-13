@@ -14,7 +14,6 @@ DATA_SERVICE_FACTORY_DECLARE(
         (hardfork_property)
         (escrow)
         (proposal)
-        (proposal_executor)
         (registration_committee)
         (development_committee)
         (registration_pool)

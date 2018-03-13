@@ -15,12 +15,13 @@
 namespace scorum {
 namespace chain {
 
-proposal_vote_evaluator::proposal_vote_evaluator(data_service_factory_i& services)
+proposal_vote_evaluator::proposal_vote_evaluator(data_service_factory_i& services,
+                                                 proposal_executor_service_i& executor)
     : evaluator_impl<data_service_factory_i, proposal_vote_evaluator>(services)
     , _account_service(db().account_service())
     , _proposal_service(db().proposal_service())
     , _properties_service(db().dynamic_global_property_service())
-    , _proposal_executor(db().proposal_executor_service())
+    , _proposal_executor(executor)
 {
 }
 
