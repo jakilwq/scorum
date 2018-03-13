@@ -4,11 +4,13 @@
 
 #include <scorum/protocol/config.hpp>
 
-#include <scorum/chain/database.hpp>
+#include <scorum/chain/database/database.hpp>
 #include <scorum/chain/hardfork.hpp>
 #include <scorum/chain/operation_notification.hpp>
 #include <scorum/chain/schema/account_objects.hpp>
 #include <scorum/chain/schema/comment_objects.hpp>
+#include <scorum/chain/services/account.hpp>
+#include <scorum/chain/services/comment.hpp>
 
 #include <fc/smart_ref_impl.hpp>
 #include <fc/thread/thread.hpp>
@@ -188,10 +190,12 @@ struct operation_visitor
     void create_tag(const std::string& tag, const comment_object& comment, double hot, double trending) const
     {
         comment_id_type parent;
-        account_id_type author = _db.get_account(comment.author).id;
+        account_id_type author = _db.obtain_service<dbs_account>().get_account(comment.author).id;
 
         if (comment.parent_author.size())
-            parent = _db.get_comment(comment.parent_author, comment.parent_permlink).id;
+            parent = _db.obtain_service<dbs_comment>()
+                         .get(comment.parent_author, fc::to_string(comment.parent_permlink))
+                         .id;
 
         const auto& tag_obj = _db.create<tag_object>([&](tag_object& obj) {
             obj.tag = tag;
@@ -318,7 +322,7 @@ struct operation_visitor
 
             if (c.parent_author.size())
             {
-                update_tags(_db.get_comment(c.parent_author, c.parent_permlink));
+                update_tags(_db.obtain_service<dbs_comment>().get(c.parent_author, fc::to_string(c.parent_permlink)));
             }
         }
         FC_CAPTURE_LOG_AND_RETHROW((c))
@@ -384,7 +388,7 @@ struct operation_visitor
 
     void operator()(const comment_operation& op) const
     {
-        update_tags(_db.get_comment(op.author, op.permlink), true);
+        update_tags(_db.obtain_service<dbs_comment>().get(op.author, op.permlink), true);
     }
 
     void operator()(const transfer_operation& op) const
@@ -402,35 +406,39 @@ struct operation_visitor
                 auto acnt = part[0].substr(1);
                 auto perm = part[1];
 
-                auto c = _db.find_comment(acnt, perm);
-                if (c && c->parent_author.size() == 0)
+                auto& comment_service = _db.obtain_service<dbs_comment>();
+                if (comment_service.is_exists(acnt, perm))
                 {
-                    const auto& comment_idx = _db.get_index<tag_index>().indices().get<by_comment>();
-                    auto citr = comment_idx.lower_bound(c->id);
-                    while (citr != comment_idx.end() && citr->comment == c->id)
+                    const auto& c = comment_service.get(acnt, perm);
+                    if (c.parent_author.size() == 0)
                     {
-                        _db.modify(*citr, [&](tag_object& t) {
-                            if (t.cashout != fc::time_point_sec::maximum())
-                                t.promoted_balance += op.amount.amount;
-                        });
-                        ++citr;
+                        const auto& comment_idx = _db.get_index<tag_index>().indices().get<by_comment>();
+                        auto citr = comment_idx.lower_bound(c.id);
+                        while (citr != comment_idx.end() && citr->comment == c.id)
+                        {
+                            _db.modify(*citr, [&](tag_object& t) {
+                                if (t.cashout != fc::time_point_sec::maximum())
+                                    t.promoted_balance += op.amount.amount;
+                            });
+                            ++citr;
+                        }
+
+                        return;
                     }
                 }
-                else
-                {
-                    ilog("unable to find body");
-                }
+
+                ilog("unable to find body");
             }
         }
     }
 
     void operator()(const vote_operation& op) const
     {
-        update_tags(_db.get_comment(op.author, op.permlink));
+        update_tags(_db.obtain_service<dbs_comment>().get(op.author, op.permlink));
         /*
-        update_peer_stats( _db.get_account(op.voter),
-                           _db.get_account(op.author),
-                           _db.get_comment(op.author, op.permlink),
+        update_peer_stats( _db.obtain_service<dbs_account>().get_account(op.voter),
+                           _db.obtain_service<dbs_account>().get_account(op.author),
+                           _db.obtain_service<dbs_comment>().get(op.author, op.permlink),
                            op.weight );
                            */
     }
@@ -439,7 +447,7 @@ struct operation_visitor
     {
         const auto& idx = _db.get_index<tag_index>().indices().get<by_author_comment>();
 
-        const auto& auth = _db.get_account(op.author);
+        const auto& auth = _db.obtain_service<dbs_account>().get_account(op.author);
         auto itr = idx.lower_bound(boost::make_tuple(auth.id));
         while (itr != idx.end() && itr->author == auth.id)
         {
@@ -455,7 +463,7 @@ struct operation_visitor
 
     void operator()(const comment_reward_operation& op) const
     {
-        const auto& c = _db.get_comment(op.author, op.permlink);
+        const auto& c = _db.obtain_service<dbs_comment>().get(op.author, op.permlink);
         update_tags(c);
 
         comment_metadata meta = filter_tags(c);
@@ -468,7 +476,7 @@ struct operation_visitor
 
     void operator()(const comment_payout_update_operation& op) const
     {
-        const auto& c = _db.get_comment(op.author, op.permlink);
+        const auto& c = _db.obtain_service<dbs_comment>().get(op.author, op.permlink);
         update_tags(c);
     }
 

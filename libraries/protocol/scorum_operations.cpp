@@ -33,7 +33,7 @@ void account_create_with_delegation_operation::validate() const
     validate_account_name(new_account_name);
     validate_account_name(creator);
     FC_ASSERT(is_asset_type(fee, SCORUM_SYMBOL), "Account creation fee must be SCR");
-    FC_ASSERT(is_asset_type(delegation, VESTS_SYMBOL), "Delegation must be SP");
+    FC_ASSERT(is_asset_type(delegation, SP_SYMBOL), "Delegation must be SP");
 
     owner.validate();
     active.validate();
@@ -46,7 +46,7 @@ void account_create_with_delegation_operation::validate() const
     }
 
     FC_ASSERT(fee >= asset(0, SCORUM_SYMBOL), "Account creation fee cannot be negative");
-    FC_ASSERT(delegation >= asset(0, VESTS_SYMBOL), "Delegation cannot be negative");
+    FC_ASSERT(delegation >= asset(0, SP_SYMBOL), "Delegation cannot be negative");
 }
 
 void account_create_by_committee_operation::validate() const
@@ -140,7 +140,7 @@ void transfer_operation::validate() const
     {
         validate_account_name(from);
         validate_account_name(to);
-        FC_ASSERT(amount.symbol() != VESTS_SYMBOL, "transferring of Scorum Power (STMP) is not allowed.");
+        FC_ASSERT(amount.symbol() != SP_SYMBOL, "transferring of Scorum Power (STMP) is not allowed.");
         FC_ASSERT(amount.amount > 0, "Cannot transfer a negative amount (aka: stealing)");
         FC_ASSERT(memo.size() < SCORUM_MAX_MEMO_SIZE, "Memo is too large");
         FC_ASSERT(fc::is_utf8(memo), "Memo is not UTF8");
@@ -148,7 +148,7 @@ void transfer_operation::validate() const
     FC_CAPTURE_AND_RETHROW((*this))
 }
 
-void transfer_to_vesting_operation::validate() const
+void transfer_to_scorumpower_operation::validate() const
 {
     validate_account_name(from);
     FC_ASSERT(is_asset_type(amount, SCORUM_SYMBOL), "Amount must be SCR");
@@ -157,16 +157,22 @@ void transfer_to_vesting_operation::validate() const
     FC_ASSERT(amount > asset(0, SCORUM_SYMBOL), "Must transfer a nonzero amount");
 }
 
-void withdraw_vesting_operation::validate() const
+void withdraw_scorumpower_operation::validate() const
 {
     validate_account_name(account);
-    FC_ASSERT(is_asset_type(vesting_shares, VESTS_SYMBOL), "Amount must be SP");
+    FC_ASSERT(is_asset_type(scorumpower, SP_SYMBOL), "Amount must be SP");
 }
 
-void set_withdraw_vesting_route_operation::validate() const
+void set_withdraw_scorumpower_route_to_account_operation::validate() const
 {
     validate_account_name(from_account);
     validate_account_name(to_account);
+    FC_ASSERT(0 <= percent && percent <= SCORUM_100_PERCENT, "Percent must be valid scorum percent");
+}
+
+void set_withdraw_scorumpower_route_to_dev_pool_operation::validate() const
+{
+    validate_account_name(from_account);
     FC_ASSERT(0 <= percent && percent <= SCORUM_100_PERCENT, "Percent must be valid scorum percent");
 }
 
@@ -190,29 +196,6 @@ void account_witness_proxy_operation::validate() const
     if (proxy.size())
         validate_account_name(proxy);
     FC_ASSERT(proxy != account, "Cannot proxy to self");
-}
-
-void custom_operation::validate() const
-{
-    /// required auth accounts are the ones whose bandwidth is consumed
-    FC_ASSERT(required_auths.size() > 0, "at least on account must be specified");
-}
-void custom_json_operation::validate() const
-{
-    /// required auth accounts are the ones whose bandwidth is consumed
-    FC_ASSERT((required_auths.size() + required_posting_auths.size()) > 0, "at least on account must be specified");
-    FC_ASSERT(id.size() <= 32, "id is too long");
-    FC_ASSERT(fc::is_utf8(json), "JSON Metadata not formatted in UTF8");
-    FC_ASSERT(fc::json::is_valid(json), "JSON Metadata not valid JSON");
-}
-void custom_binary_operation::validate() const
-{
-    /// required auth accounts are the ones whose bandwidth is consumed
-    FC_ASSERT((required_owner_auths.size() + required_active_auths.size() + required_posting_auths.size()) > 0,
-              "at least on account must be specified");
-    FC_ASSERT(id.size() <= 32, "id is too long");
-    for (const auto& a : required_auths)
-        a.validate();
 }
 
 void escrow_transfer_operation::validate() const
@@ -294,13 +277,13 @@ void decline_voting_rights_operation::validate() const
     validate_account_name(account);
 }
 
-void delegate_vesting_shares_operation::validate() const
+void delegate_scorumpower_operation::validate() const
 {
     validate_account_name(delegator);
     validate_account_name(delegatee);
     FC_ASSERT(delegator != delegatee, "You cannot delegate SP to yourself");
-    FC_ASSERT(is_asset_type(vesting_shares, VESTS_SYMBOL), "Delegation must be SP");
-    FC_ASSERT(vesting_shares >= asset(0, VESTS_SYMBOL), "Delegation cannot be negative");
+    FC_ASSERT(is_asset_type(scorumpower, SP_SYMBOL), "Delegation must be SP");
+    FC_ASSERT(scorumpower >= asset(0, SP_SYMBOL), "Delegation cannot be negative");
 }
 
 void create_budget_operation::validate() const
@@ -349,20 +332,7 @@ void proposal_create_operation::validate() const
 {
     validate_account_name(creator);
 
-    FC_ASSERT(action.valid(), "Proposal is not set.");
-
-    if (action == action_t::dropout || action == action_t::invite)
-    {
-        validate_account_name(data.as_string());
-    }
-    else
-    {
-        uint64_t quorum = data.as_uint64();
-
-        FC_ASSERT(quorum >= SCORUM_MIN_QUORUM_VALUE_PERCENT, "Quorum is to small.");
-
-        FC_ASSERT(quorum <= SCORUM_MAX_QUORUM_VALUE_PERCENT, "Quorum is to large.");
-    }
+    operation_validate(operation);
 }
 
 } // namespace protocol

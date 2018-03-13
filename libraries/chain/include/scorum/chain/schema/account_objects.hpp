@@ -51,18 +51,12 @@ public:
 
     asset balance = asset(0, SCORUM_SYMBOL);    ///< total liquid shares held by this account
 
-    share_type curation_rewards = 0;
-    share_type posting_rewards = 0;
+    asset curation_rewards = asset(0, SCORUM_SYMBOL);
+    asset posting_rewards = asset(0, SCORUM_SYMBOL);
 
-    asset vesting_shares =              asset(0, VESTS_SYMBOL); ///< total vesting shares held by this account, controls its voting power
-    asset delegated_vesting_shares =    asset(0, VESTS_SYMBOL);
-    asset received_vesting_shares =     asset(0, VESTS_SYMBOL);
-
-    asset vesting_withdraw_rate =       asset(0, VESTS_SYMBOL); ///< at the time this is updated it can be at most vesting_shares/104
-    time_point_sec next_vesting_withdrawal = fc::time_point_sec::maximum(); ///< after every withdrawal this is incremented by 1 week
-    share_type withdrawn = 0; /// Track how many shares have been withdrawn
-    share_type to_withdraw = 0; /// Might be able to look this up with operation history.
-    uint16_t withdraw_routes = 0;
+    asset scorumpower =              asset(0, SP_SYMBOL); ///< total scorumpower (SP) held by this account, controls its voting power
+    asset delegated_scorumpower =    asset(0, SP_SYMBOL);
+    asset received_scorumpower =     asset(0, SP_SYMBOL);
 
     fc::array<share_type, SCORUM_MAX_PROXY_RECURSION_DEPTH> proxied_vsf_votes; // = std::vector<share_type>(SCORUM_MAX_PROXY_RECURSION_DEPTH, 0 );
                                                                                ///< the total VFS votes proxied to this account
@@ -76,16 +70,16 @@ public:
     /// This function should be used only when the account votes for a witness directly
     share_type witness_vote_weight() const
     {
-        return std::accumulate(proxied_vsf_votes.begin(), proxied_vsf_votes.end(), vesting_shares.amount);
+        return std::accumulate(proxied_vsf_votes.begin(), proxied_vsf_votes.end(), scorumpower.amount);
     }
     share_type proxied_vsf_votes_total() const
     {
         return std::accumulate(proxied_vsf_votes.begin(), proxied_vsf_votes.end(), share_type());
     }
 
-    asset effective_vesting_shares() const
+    asset effective_scorumpower() const
     {
-        return vesting_shares - delegated_vesting_shares + received_vesting_shares;
+        return scorumpower - delegated_scorumpower + received_scorumpower;
     }
 };
 // clang-format on
@@ -107,27 +101,27 @@ public:
     time_point_sec last_owner_update;
 };
 
-class vesting_delegation_object : public object<vesting_delegation_object_type, vesting_delegation_object>
+class scorumpower_delegation_object : public object<scorumpower_delegation_object_type, scorumpower_delegation_object>
 {
 public:
-    CHAINBASE_DEFAULT_CONSTRUCTOR(vesting_delegation_object)
+    CHAINBASE_DEFAULT_CONSTRUCTOR(scorumpower_delegation_object)
 
     id_type id;
     account_name_type delegator;
     account_name_type delegatee;
-    asset vesting_shares = asset(0, VESTS_SYMBOL);
+    asset scorumpower = asset(0, SP_SYMBOL);
     time_point_sec min_delegation_time;
 };
 
-class vesting_delegation_expiration_object
-    : public object<vesting_delegation_expiration_object_type, vesting_delegation_expiration_object>
+class scorumpower_delegation_expiration_object
+    : public object<scorumpower_delegation_expiration_object_type, scorumpower_delegation_expiration_object>
 {
 public:
-    CHAINBASE_DEFAULT_CONSTRUCTOR(vesting_delegation_expiration_object)
+    CHAINBASE_DEFAULT_CONSTRUCTOR(scorumpower_delegation_expiration_object)
 
     id_type id;
     account_name_type delegator;
-    asset vesting_shares = asset(0, VESTS_SYMBOL);
+    asset scorumpower = asset(0, SP_SYMBOL);
     time_point_sec expiration;
 };
 
@@ -173,7 +167,6 @@ public:
 struct by_name;
 struct by_proxy;
 struct by_last_post;
-struct by_next_vesting_withdrawal;
 struct by_scorum_balance;
 struct by_smp_balance;
 struct by_post_count;
@@ -207,18 +200,6 @@ typedef shared_multi_index_container<account_object,
                                                                /// key by
                                                                /// proxy
                                                                >,
-                                                ordered_unique<tag<by_next_vesting_withdrawal>,
-                                                               composite_key<account_object,
-                                                                             member<account_object,
-                                                                                    time_point_sec,
-                                                                                    &account_object::
-                                                                                        next_vesting_withdrawal>,
-                                                                             member<account_object,
-                                                                                    account_id_type,
-                                                                                    &account_object::id>> /// composite
-                                                               /// key
-                                                               /// by_next_vesting_withdrawal
-                                                               >,
                                                 ordered_unique<tag<by_last_post>,
                                                                composite_key<account_object,
                                                                              member<account_object,
@@ -243,7 +224,7 @@ typedef shared_multi_index_container<account_object,
                                                                composite_key<account_object,
                                                                              member<account_object,
                                                                                     asset,
-                                                                                    &account_object::vesting_shares>,
+                                                                                    &account_object::scorumpower>,
                                                                              member<account_object,
                                                                                     account_id_type,
                                                                                     &account_object::id>>,
@@ -334,65 +315,65 @@ typedef shared_multi_index_container<account_authority_object,
 
 struct by_delegation;
 
-typedef shared_multi_index_container<vesting_delegation_object,
+typedef shared_multi_index_container<scorumpower_delegation_object,
                                      indexed_by<ordered_unique<tag<by_id>,
-                                                               member<vesting_delegation_object,
-                                                                      vesting_delegation_id_type,
-                                                                      &vesting_delegation_object::id>>,
+                                                               member<scorumpower_delegation_object,
+                                                                      scorumpower_delegation_id_type,
+                                                                      &scorumpower_delegation_object::id>>,
                                                 ordered_unique<tag<by_delegation>,
-                                                               composite_key<vesting_delegation_object,
-                                                                             member<vesting_delegation_object,
+                                                               composite_key<scorumpower_delegation_object,
+                                                                             member<scorumpower_delegation_object,
                                                                                     account_name_type,
-                                                                                    &vesting_delegation_object::
+                                                                                    &scorumpower_delegation_object::
                                                                                         delegator>,
-                                                                             member<vesting_delegation_object,
+                                                                             member<scorumpower_delegation_object,
                                                                                     account_name_type,
-                                                                                    &vesting_delegation_object::
+                                                                                    &scorumpower_delegation_object::
                                                                                         delegatee>>,
                                                                composite_key_compare<std::less<account_name_type>,
                                                                                      std::less<account_name_type>>>>>
-    vesting_delegation_index;
+    scorumpower_delegation_index;
 
 struct by_expiration;
 struct by_account_expiration;
 
-typedef shared_multi_index_container<vesting_delegation_expiration_object,
+typedef shared_multi_index_container<scorumpower_delegation_expiration_object,
                                      indexed_by<ordered_unique<tag<by_id>,
-                                                               member<vesting_delegation_expiration_object,
-                                                                      vesting_delegation_expiration_id_type,
-                                                                      &vesting_delegation_expiration_object::id>>,
+                                                               member<scorumpower_delegation_expiration_object,
+                                                                      scorumpower_delegation_expiration_id_type,
+                                                                      &scorumpower_delegation_expiration_object::id>>,
                                                 ordered_unique<tag<by_expiration>,
-                                                               composite_key<vesting_delegation_expiration_object,
-                                                                             member<vesting_delegation_expiration_object,
+                                                               composite_key<scorumpower_delegation_expiration_object,
+                                                                             member<scorumpower_delegation_expiration_object,
                                                                                     time_point_sec,
-                                                                                    &vesting_delegation_expiration_object::
+                                                                                    &scorumpower_delegation_expiration_object::
                                                                                         expiration>,
-                                                                             member<vesting_delegation_expiration_object,
-                                                                                    vesting_delegation_expiration_id_type,
-                                                                                    &vesting_delegation_expiration_object::
+                                                                             member<scorumpower_delegation_expiration_object,
+                                                                                    scorumpower_delegation_expiration_id_type,
+                                                                                    &scorumpower_delegation_expiration_object::
                                                                                         id>>,
                                                                composite_key_compare<std::less<time_point_sec>,
                                                                                      std::
-                                                                                         less<vesting_delegation_expiration_id_type>>>,
+                                                                                         less<scorumpower_delegation_expiration_id_type>>>,
                                                 ordered_unique<tag<by_account_expiration>,
-                                                               composite_key<vesting_delegation_expiration_object,
-                                                                             member<vesting_delegation_expiration_object,
+                                                               composite_key<scorumpower_delegation_expiration_object,
+                                                                             member<scorumpower_delegation_expiration_object,
                                                                                     account_name_type,
-                                                                                    &vesting_delegation_expiration_object::
+                                                                                    &scorumpower_delegation_expiration_object::
                                                                                         delegator>,
-                                                                             member<vesting_delegation_expiration_object,
+                                                                             member<scorumpower_delegation_expiration_object,
                                                                                     time_point_sec,
-                                                                                    &vesting_delegation_expiration_object::
+                                                                                    &scorumpower_delegation_expiration_object::
                                                                                         expiration>,
-                                                                             member<vesting_delegation_expiration_object,
-                                                                                    vesting_delegation_expiration_id_type,
-                                                                                    &vesting_delegation_expiration_object::
+                                                                             member<scorumpower_delegation_expiration_object,
+                                                                                    scorumpower_delegation_expiration_id_type,
+                                                                                    &scorumpower_delegation_expiration_object::
                                                                                         id>>,
                                                                composite_key_compare<std::less<account_name_type>,
                                                                                      std::less<time_point_sec>,
                                                                                      std::
-                                                                                         less<vesting_delegation_expiration_id_type>>>>>
-    vesting_delegation_expiration_index;
+                                                                                         less<scorumpower_delegation_expiration_id_type>>>>>
+    scorumpower_delegation_expiration_index;
 
 struct by_expiration;
 
@@ -474,8 +455,7 @@ FC_REFLECT( scorum::chain::account_object,
              (owner_challenged)(active_challenged)(last_owner_proved)(last_active_proved)(recovery_account)(last_account_recovery)
              (comment_count)(lifetime_vote_count)(post_count)(can_vote)(voting_power)(last_vote_time)
              (balance)
-             (vesting_shares)(delegated_vesting_shares)(received_vesting_shares)
-             (vesting_withdraw_rate)(next_vesting_withdrawal)(withdrawn)(to_withdraw)(withdraw_routes)
+             (scorumpower)(delegated_scorumpower)(received_scorumpower)
              (curation_rewards)
              (posting_rewards)
              (proxied_vsf_votes)(witnesses_voted_for)
@@ -488,13 +468,13 @@ FC_REFLECT( scorum::chain::account_authority_object,
 )
 CHAINBASE_SET_INDEX_TYPE( scorum::chain::account_authority_object, scorum::chain::account_authority_index )
 
-FC_REFLECT( scorum::chain::vesting_delegation_object,
-            (id)(delegator)(delegatee)(vesting_shares)(min_delegation_time) )
-CHAINBASE_SET_INDEX_TYPE( scorum::chain::vesting_delegation_object, scorum::chain::vesting_delegation_index )
+FC_REFLECT( scorum::chain::scorumpower_delegation_object,
+            (id)(delegator)(delegatee)(scorumpower)(min_delegation_time) )
+CHAINBASE_SET_INDEX_TYPE( scorum::chain::scorumpower_delegation_object, scorum::chain::scorumpower_delegation_index )
 
-FC_REFLECT( scorum::chain::vesting_delegation_expiration_object,
-            (id)(delegator)(vesting_shares)(expiration) )
-CHAINBASE_SET_INDEX_TYPE( scorum::chain::vesting_delegation_expiration_object, scorum::chain::vesting_delegation_expiration_index )
+FC_REFLECT( scorum::chain::scorumpower_delegation_expiration_object,
+            (id)(delegator)(scorumpower)(expiration) )
+CHAINBASE_SET_INDEX_TYPE( scorum::chain::scorumpower_delegation_expiration_object, scorum::chain::scorumpower_delegation_expiration_index )
 
 FC_REFLECT( scorum::chain::owner_authority_history_object,
              (id)(account)(previous_owner_authority)(last_valid_time)

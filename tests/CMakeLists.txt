@@ -1,7 +1,6 @@
 add_subdirectory(hippomocks)
+add_subdirectory( ucommon )
 add_subdirectory( utests )
 add_subdirectory( common )
 add_subdirectory( chain_tests )
 add_subdirectory( wallet_tests )
-add_subdirectory( plugin_tests )
-#add_subdirectory( generate_empty_blocks )

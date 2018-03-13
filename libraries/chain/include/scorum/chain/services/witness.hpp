@@ -10,7 +10,6 @@ namespace chain {
 
 class account_object;
 class witness_object;
-class witness_schedule_object;
 
 using chain_properties = scorum::protocol::chain_properties;
 
@@ -20,14 +19,16 @@ struct witness_service_i
 
     virtual bool is_exists(const account_name_type& owner) const = 0;
 
-    virtual const witness_schedule_object& get_witness_schedule_object() const = 0;
-
     virtual const witness_object& get_top_witness() const = 0;
 
     virtual const witness_object& create_witness(const account_name_type& owner,
                                                  const std::string& url,
                                                  const public_key_type& block_signing_key,
                                                  const chain_properties& props)
+        = 0;
+
+    virtual const witness_object& create_initial_witness(const account_name_type& owner,
+                                                         const public_key_type& block_signing_key)
         = 0;
 
     virtual void update_witness(const witness_object& witness,
@@ -55,14 +56,15 @@ public:
 
     bool is_exists(const account_name_type& owner) const override;
 
-    const witness_schedule_object& get_witness_schedule_object() const override;
-
     const witness_object& get_top_witness() const override;
 
     const witness_object& create_witness(const account_name_type& owner,
                                          const std::string& url,
                                          const public_key_type& block_signing_key,
                                          const chain_properties& props) override;
+
+    const witness_object& create_initial_witness(const account_name_type& owner,
+                                                 const public_key_type& block_signing_key) override;
 
     void update_witness(const witness_object& witness,
                         const std::string& url,
@@ -74,6 +76,9 @@ public:
 
     /** this is called by `adjust_proxied_witness_votes` when account proxy to self */
     void adjust_witness_votes(const account_object& account, const share_type& delta) override;
+
+private:
+    const witness_object& create_internal(const account_name_type& owner, const public_key_type& block_signing_key);
 };
 } // namespace chain
 } // namespace scorum

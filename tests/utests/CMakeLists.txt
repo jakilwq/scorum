@@ -7,32 +7,34 @@ endif()
 
 file(GLOB_RECURSE HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/*.hpp")
 
-set( SOURCES
-  main.cpp
-  basic_tests.cpp
-  genesis_tests.cpp
-  print_tests.cpp
-  atomicswap_check/atomicswap_helper_check.cpp
-  proposal/proposal_create_evaluator_tests.cpp
-  proposal_vote_operation_tests.cpp
-  serialization_tests.cpp
-  signed_transaction_serialization_tests.cpp
+set(SOURCES
+    main.cpp
+    basic_tests.cpp
+    genesis_tests.cpp
+    print_tests.cpp
+    atomicswap/atomicswap_helper_tests.cpp
+    genesis/initializator_tests.cpp
+    genesis/accounts_tests.cpp
+    genesis/founders_tests.cpp
+    signed_transaction_serialization_tests.cpp
+    serialization_tests.cpp
+    proposal/proposal_operations_tests.cpp
+    proposal/proposal_evaluator_register_tests.cpp
+    proposal/proposal_create_evaluator_tests.cpp
+    proposal/proposal_vote_evaluator_tests.cpp
+    proposal/development_committee_transfer_evaluator_tests.cpp
+    tasks_base_tests.cpp
+    block_tasks_tests.cpp
 )
 
 add_executable(utests
               ${SOURCES}
               ${HEADERS})
+
 target_link_libraries(utests
-                      HippoMocks
-                      chainbase
-                      scorum_chain
-                      scorum_protocol
+                      ucommon_test
                       scorum_app
-                      scorum_egenesis_none
-                      cli
-                      fc
-                      ${PLATFORM_SPECIFIC_LIBS}
-                      )
+                      scorum_egenesis_none)
+
 target_include_directories(utests PUBLIC
-                           "${CMAKE_CURRENT_SOURCE_DIR}"
-                           "../common")
+                           "${CMAKE_CURRENT_SOURCE_DIR}")

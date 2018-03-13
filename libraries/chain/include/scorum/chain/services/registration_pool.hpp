@@ -15,14 +15,17 @@ struct registration_pool_service_i
     using schedule_item_type = registration_pool_object::schedule_item;
     using schedule_items_type = std::map<uint8_t /*stage field*/, schedule_item_type /*all other fields*/>;
 
+    virtual const registration_pool_object& get() const = 0;
+
+    virtual bool is_exists() const = 0;
+
     virtual const registration_pool_object&
     create_pool(const asset& supply, const asset& maximum_bonus, const schedule_items_type& schedule_items)
         = 0;
 
-    virtual asset allocate_cash(const account_name_type& committee_member) = 0;
-    virtual const registration_pool_object& get() const = 0;
+    virtual void decrease_balance(const asset& amount) = 0;
 
-    virtual bool is_exists() const = 0;
+    virtual void increase_already_allocated_count() = 0;
 };
 
 /**
@@ -36,23 +39,16 @@ protected:
     explicit dbs_registration_pool(database& db);
 
 public:
-    virtual const registration_pool_object& get() const override;
+    const registration_pool_object& get() const override;
 
-    virtual bool is_exists() const override;
+    bool is_exists() const override;
 
-    virtual const registration_pool_object&
+    const registration_pool_object&
     create_pool(const asset& supply, const asset& maximum_bonus, const schedule_items_type& schedule_items) override;
 
-    virtual asset allocate_cash(const account_name_type& committee_member) override;
+    void decrease_balance(const asset& amount) override;
 
-private:
-    asset _calculate_per_reg();
-
-    asset _decrease_balance(const asset&);
-
-    bool _check_autoclose();
-
-    void _close();
+    void increase_already_allocated_count() override;
 };
 
 } // namespace chain

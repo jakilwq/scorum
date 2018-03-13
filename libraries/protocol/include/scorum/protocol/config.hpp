@@ -13,12 +13,14 @@
 
 #define SCORUM_ADDRESS_PREFIX                  "SCR"
 
+#define SCORUM_BLOCKID_POOL_SIZE 0xffff
+
 #define SCORUM_CURRENCY_PRECISION  9
 
-// SCORUM = SCR with 3 digits of precision
+// Scorum Coin = SCR with 9 digits of precision
 #define SCORUM_SYMBOL  (uint64_t(SCORUM_CURRENCY_PRECISION) | (uint64_t('S') << 8) | (uint64_t('C') << 16) | (uint64_t('R') << 24))
-// VESTS = SP with 6 digits of precision
-#define VESTS_SYMBOL   (uint64_t(SCORUM_CURRENCY_PRECISION) | (uint64_t('S') << 8) | (uint64_t('P') << 16))
+// Scorum Power = SP with 9 digits of precision
+#define SP_SYMBOL   (uint64_t(SCORUM_CURRENCY_PRECISION) | (uint64_t('S') << 8) | (uint64_t('P') << 16))
 
 #define SCORUM_MAX_SHARE_SUPPLY                share_value_type(100000000e+9) //100 million
 
@@ -30,13 +32,15 @@
 //Got only minimum for transactions bandwidth. Required spend SCR to enlarge up to SCORUM_VOTE_DUST_THRESHOLD
 #define SCORUM_MIN_ACCOUNT_CREATION_FEE        asset(SCORUM_VOTE_DUST_THRESHOLD/2, SCORUM_SYMBOL)
 
-#define SCORUM_CREATE_ACCOUNT_WITH_SCORUM_MODIFIER 30
+#define SCORUM_MIN_COMMENT_PAYOUT                  (asset(5, SCORUM_SYMBOL))
+
+#define SCORUM_CREATE_ACCOUNT_WITH_SCORUM_MODIFIER  30
 
 #define SCORUM_MIN_DELEGATE_VESTING_SHARES_MODIFIER 10
 
-#define SCORUM_MIN_PAYOUT                  (asset(5, SCORUM_SYMBOL))
+#define SCORUM_ADJUST_REWARD_PERCENT                5
 
-#define SCORUM_ADJUST_REWARD_PERCENT                    5
+#define SCORUM_START_WITHDRAW_COEFFICIENT           10
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 #ifdef IS_TEST_NET
@@ -57,8 +61,6 @@
 #define SCORUM_BUDGET_LIMIT_COUNT_PER_OWNER       5
 #define SCORUM_BUDGET_LIMIT_DB_LIST_SIZE          SCORUM_BUDGET_LIMIT_COUNT_PER_OWNER
 #define SCORUM_BUDGET_LIMIT_API_LIST_SIZE         SCORUM_BUDGET_LIMIT_COUNT_PER_OWNER
-
-#define SCORUM_REGISTRATION_BONUS_LIMIT_PER_MEMBER_PER_N_BLOCK    asset( 10, SCORUM_SYMBOL )
 
 #define SCORUM_ATOMICSWAP_INITIATOR_REFUND_LOCK_SECS           60*20
 #define SCORUM_ATOMICSWAP_PARTICIPANT_REFUND_LOCK_SECS         60*10
@@ -85,8 +87,6 @@
 #define SCORUM_BUDGET_LIMIT_DB_LIST_SIZE          1000
 #define SCORUM_BUDGET_LIMIT_API_LIST_SIZE         1000
 
-#define SCORUM_REGISTRATION_BONUS_LIMIT_PER_MEMBER_PER_N_BLOCK    asset( 1000, VESTS_SYMBOL )
-
 #define SCORUM_ATOMICSWAP_INITIATOR_REFUND_LOCK_SECS           48*3600
 #define SCORUM_ATOMICSWAP_PARTICIPANT_REFUND_LOCK_SECS         24*3600
 
@@ -95,13 +95,17 @@
 #endif
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-#define SCORUM_REGISTRATION_LIMIT_COUNT_COMMITTEE_MEMBERS        30
+#define SCORUM_REGISTRATION_BONUS_LIMIT_PER_MEMBER_PER_N_BLOCK    10 /// * registration_bonus
+
+#define SCORUM_REGISTRATION_BONUS_LIMIT_PER_MEMBER_N_BLOCK        2
+
+#define SCORUM_REGISTRATION_COMMITTEE_MAX_MEMBERS_LIMIT        30
+#define SCORUM_DEVELOPMENT_COMMITTEE_MAX_MEMBERS_LIMIT         30
 
 #define SCORUM_BLOCK_INTERVAL                  3
 #define SCORUM_BLOCKS_PER_YEAR                 (365*24*60*60/SCORUM_BLOCK_INTERVAL)
 #define SCORUM_BLOCKS_PER_DAY                  (24*60*60/SCORUM_BLOCK_INTERVAL)
 #define SCORUM_BLOCKS_PER_HOUR                 (60*60/SCORUM_BLOCK_INTERVAL)
-#define SCORUM_START_VESTING_BLOCK             (SCORUM_BLOCKS_PER_DAY * 7)
 #define SCORUM_START_MINER_VOTING_BLOCK        (SCORUM_BLOCKS_PER_DAY * 30)
 
 #define SCORUM_NUM_INIT_DELEGATES              1
@@ -135,7 +139,7 @@
 #define SCORUM_100_PERCENT                     10000
 #define SCORUM_1_PERCENT                       (SCORUM_100_PERCENT/100)
 #define SCORUM_1_TENTH_PERCENT                 (SCORUM_100_PERCENT/1000)
-#define SCORUM_PERCENT(X)                      (X*SCORUM_1_PERCENT)
+#define SCORUM_PERCENT(X)                      (uint16_t)(X*SCORUM_1_PERCENT)
 
 #define SCORUM_CONTENT_REWARD_PERCENT          (95*SCORUM_1_PERCENT)
 #define SCORUM_CURATION_REWARD_PERCENT         (25*SCORUM_1_PERCENT)
@@ -189,12 +193,9 @@
  *  Reserved Account IDs with special meaning
  */
 /// Represents the canonical account for specifying you will vote for directly (as opposed to a proxy)
-#define SCORUM_PROXY_TO_SELF_ACCOUNT           ""
+#define SCORUM_PROXY_TO_SELF_ACCOUNT           (account_name_type())
 /// Represents the canonical root post parent account
-#define SCORUM_ROOT_POST_PARENT                (account_name_type())
-
-#define SCORUM_REGISTRATION_BONUS_LIMIT_PER_MEMBER_N_BLOCK        2
-
+#define SCORUM_ROOT_POST_PARENT_ACCOUNT        (account_name_type())
 ///@}
 
 // clang-format on

@@ -22,14 +22,15 @@
  * THE SOFTWARE.
  */
 #include <scorum/witness/witness_objects.hpp>
-#include <scorum/witness/witness_operations.hpp>
 #include <scorum/witness/witness_plugin.hpp>
 
 #include <scorum/chain/schema/account_objects.hpp>
-#include <scorum/chain/database.hpp>
+#include <scorum/chain/database/database.hpp>
 #include <scorum/chain/database_exceptions.hpp>
-#include <scorum/chain/generic_custom_operation_interpreter.hpp>
 #include <scorum/chain/schema/scorum_objects.hpp>
+#include <scorum/chain/services/account.hpp>
+#include <scorum/chain/services/comment.hpp>
+#include <scorum/chain/services/dynamic_global_property.hpp>
 
 #include <fc/time.hpp>
 
@@ -51,18 +52,6 @@ namespace bpo = boost::program_options;
 using protocol::signed_transaction;
 using chain::account_object;
 
-void new_chain_banner(const scorum::chain::database& db)
-{
-    const std::string welcome = "Welcome to Scorum!";
-    const std::string info_ch = "NEW CHAIN";
-
-    std::cerr << info_ch;
-    std::cerr << std::endl;
-    std::cerr << welcome;
-    std::cerr << std::endl;
-    return;
-}
-
 namespace detail {
 using namespace scorum::chain;
 
@@ -83,17 +72,10 @@ public:
     void update_account_bandwidth(const account_object& a, uint32_t trx_size, const bandwidth_type type);
 
     witness_plugin& _self;
-    std::shared_ptr<generic_custom_operation_interpreter<witness_plugin_operation>> _custom_operation_interpreter;
 };
 
 void witness_plugin_impl::plugin_initialize()
 {
-    _custom_operation_interpreter
-        = std::make_shared<generic_custom_operation_interpreter<witness_plugin_operation>>(_self.database());
-
-    _custom_operation_interpreter->register_evaluator<enable_content_editing_evaluator>(&_self);
-
-    _self.database().set_custom_operation_interpreter(_self.plugin_name(), _custom_operation_interpreter);
 }
 
 void check_memo(const std::string& memo, const account_object& account, const account_authority_object& auth)
@@ -180,24 +162,28 @@ struct operation_visitor
 
     void operator()(const comment_operation& o) const
     {
-        if (o.parent_author != SCORUM_ROOT_POST_PARENT)
-        {
-            const auto& parent = _db.find_comment(o.parent_author, o.parent_permlink);
+        auto& comment_service = _db.obtain_service<dbs_comment>();
 
-            if (parent != nullptr)
-                SCORUM_ASSERT(parent->depth < SCORUM_SOFT_MAX_COMMENT_DEPTH, chain::plugin_exception,
+        if (o.parent_author != SCORUM_ROOT_POST_PARENT_ACCOUNT)
+        {
+            if (comment_service.is_exists(o.parent_author, o.parent_permlink))
+            {
+                const auto& parent = comment_service.get(o.parent_author, o.parent_permlink);
+
+                SCORUM_ASSERT(parent.depth < SCORUM_SOFT_MAX_COMMENT_DEPTH, chain::plugin_exception,
                               "Comment is nested ${x} posts deep, maximum depth is ${y}.",
-                              ("x", parent->depth)("y", SCORUM_SOFT_MAX_COMMENT_DEPTH));
+                              ("x", parent.depth)("y", SCORUM_SOFT_MAX_COMMENT_DEPTH));
+            }
         }
 
-        auto itr = _db.find<comment_object, by_permlink>(boost::make_tuple(o.author, o.permlink));
-
-        if (itr != nullptr && itr->cashout_time == fc::time_point_sec::maximum())
+        if (comment_service.is_exists(o.author, o.permlink))
         {
-            auto edit_lock = _db.find<content_edit_lock_object, by_account>(o.author);
+            const auto& comment = comment_service.get(o.author, o.permlink);
 
-            SCORUM_ASSERT(edit_lock != nullptr && _db.head_block_time() < edit_lock->lock_time, chain::plugin_exception,
-                          "The comment is archived");
+            if (comment.cashout_time == fc::time_point_sec::maximum())
+            {
+                FC_THROW_EXCEPTION(chain::plugin_exception, "The comment is archived");
+            }
         }
     }
 
@@ -220,7 +206,7 @@ void witness_plugin_impl::pre_transaction(const signed_transaction& trx)
 
     for (const auto& auth : required)
     {
-        const auto& acnt = _db.get_account(auth);
+        const auto& acnt = _db.obtain_service<dbs_account>().get_account(auth);
 
         update_account_bandwidth(acnt, trx_size, bandwidth_type::forum);
 
@@ -247,7 +233,8 @@ void witness_plugin_impl::pre_operation(const operation_notification& note)
 void witness_plugin_impl::on_block(const signed_block& b)
 {
     auto& db = _self.database();
-    int64_t max_block_size = db.get_dynamic_global_properties().median_chain_props.maximum_block_size;
+    int64_t max_block_size
+        = db.obtain_service<dbs_dynamic_global_property>().get().median_chain_props.maximum_block_size;
 
     auto reserve_ratio_ptr = db.find(reserve_ratio_id_type());
 
@@ -273,7 +260,7 @@ void witness_plugin_impl::on_block(const signed_block& b)
             * the reserve ratio will half. Likewise, if it is at 12% it will increase by 50%.
             *
             * If the reserve ratio is consistently low, then it is probably time to increase
-            * the capcacity of the network.
+            * the capacity of the network.
             *
             * This algorithm is designed to react quickly to observations significantly
             * different from past observed behavior and make small adjustments when
@@ -329,10 +316,10 @@ void witness_plugin_impl::update_account_bandwidth(const account_object& a,
                                                    const bandwidth_type type)
 {
     database& _db = _self.database();
-    const auto& props = _db.get_dynamic_global_properties();
+    const auto& props = _db.obtain_service<dbs_dynamic_global_property>().get();
     bool has_bandwidth = true;
 
-    if (props.total_vesting_shares.amount > 0)
+    if (props.total_scorumpower.amount > 0)
     {
         auto band = _db.find<account_bandwidth_object, by_account_bandwidth_type>(boost::make_tuple(a.name, type));
 
@@ -366,8 +353,8 @@ void witness_plugin_impl::update_account_bandwidth(const account_object& a,
             b.last_bandwidth_update = _db.head_block_time();
         });
 
-        fc::uint128 account_vshares(a.effective_vesting_shares().amount.value);
-        fc::uint128 total_vshares(props.total_vesting_shares.amount.value);
+        fc::uint128 account_vshares(a.effective_scorumpower().amount.value);
+        fc::uint128 total_vshares(props.total_scorumpower.amount.value);
         fc::uint128 account_average_bandwidth(band->average_bandwidth.value);
         fc::uint128 max_virtual_bandwidth(_db.get(reserve_ratio_id_type()).max_virtual_bandwidth);
 
@@ -378,7 +365,7 @@ void witness_plugin_impl::update_account_bandwidth(const account_object& a,
                           "Account: ${account} bandwidth limit exceeded. Please wait to transact or power up SCR.",
                           ("account", a.name)("account_vshares", account_vshares)("account_average_bandwidth",
                                                                                   account_average_bandwidth)(
-                              "max_virtual_bandwidth", max_virtual_bandwidth)("total_vesting_shares", total_vshares));
+                              "max_virtual_bandwidth", max_virtual_bandwidth)("total_scorumpower", total_vshares));
     }
 }
 }
@@ -456,7 +443,6 @@ void witness_plugin::plugin_initialize(const boost::program_options::variables_m
         db.applied_block.connect([&](const signed_block& b) { _my->on_block(b); });
 
         db.add_plugin_index<account_bandwidth_index>();
-        db.add_plugin_index<content_edit_lock_index>();
         db.add_plugin_index<reserve_ratio_index>();
     }
     FC_LOG_AND_RETHROW()
@@ -467,7 +453,6 @@ void witness_plugin::plugin_startup()
     try
     {
         ilog("witness plugin:  plugin_startup() begin");
-        chain::database& d = database();
 
         if (!_witnesses.empty())
         {
@@ -476,10 +461,6 @@ void witness_plugin::plugin_startup()
             app().set_block_production(true);
             if (_production_enabled)
             {
-                if (d.head_block_num() == 0)
-                {
-                    new_chain_banner(d);
-                }
                 _production_skip_flags |= scorum::chain::database::skip_undo_history_check;
             }
             schedule_production_loop();

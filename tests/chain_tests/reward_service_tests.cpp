@@ -8,16 +8,13 @@
 
 #include <scorum/chain/schema/budget_object.hpp>
 
-#include "../common/database_fixture.hpp"
+#include "database_default_integration.hpp"
 
 #include <limits>
 
-using namespace scorum;
-using namespace scorum::chain;
-using namespace scorum::protocol;
-using fc::string;
+using namespace database_fixture;
 
-class dbs_reward_fixture : public database_fixture
+class dbs_reward_fixture : public database_integration_fixture
 {
 public:
     dbs_reward_fixture()

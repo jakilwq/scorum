@@ -27,10 +27,12 @@
 
 #include <scorum/protocol/exceptions.hpp>
 
-#include <scorum/chain/database.hpp>
+#include <scorum/chain/database/database.hpp>
 #include <scorum/chain/schema/scorum_objects.hpp>
-#include <scorum/chain/schema/history_objects.hpp>
-#include <scorum/chain/genesis_state.hpp>
+#include <scorum/chain/schema/operation_object.hpp>
+#include <scorum/chain/genesis/genesis_state.hpp>
+#include <scorum/chain/services/account.hpp>
+#include <scorum/chain/services/dynamic_global_property.hpp>
 
 #include <scorum/account_history/account_history_plugin.hpp>
 
@@ -38,11 +40,35 @@
 
 #include <fc/crypto/digest.hpp>
 
-#include "database_fixture.hpp"
+#include "database_default_integration.hpp"
+#include "database_integration.hpp"
 
-using namespace scorum;
+namespace {
+
 using namespace scorum::chain;
 using namespace scorum::protocol;
+
+bool test_push_block(database& db, const signed_block& b, uint32_t skip_flags = 0)
+{
+    return db.push_block(b, skip_flags);
+}
+
+void test_push_transaction(database& db, const signed_transaction& tx, uint32_t skip_flags = 0)
+{
+    try
+    {
+        db.push_transaction(tx, skip_flags);
+    }
+    FC_CAPTURE_AND_RETHROW((tx))
+}
+
+} // namespace test
+
+#define PUSH_TX test_push_transaction
+
+#define PUSH_BLOCK test_push_block
+
+using namespace database_fixture;
 
 BOOST_AUTO_TEST_SUITE(block_tests)
 
@@ -50,7 +76,7 @@ void db_setup_and_open(database& db, const fc::path& path)
 {
     genesis_state_type genesis;
 
-    genesis = test::init_genesis();
+    genesis = database_integration_fixture::create_default_genesis_state();
 
     db._log_hardforks = false;
     db.open(path, path, TEST_SHARED_MEM_SIZE_8MB, chainbase::database::read_write, genesis);
@@ -83,7 +109,8 @@ BOOST_AUTO_TEST_CASE(generate_empty_blocks)
                 // BOOST_CHECK( cur_witness != prev_witness );
                 b = db.generate_block(db.get_slot_time(1), cur_witness, init_account_priv_key, database::skip_nothing);
                 BOOST_CHECK(b.witness == cur_witness);
-                uint32_t cutoff_height = db.get_dynamic_global_properties().last_irreversible_block_num;
+                uint32_t cutoff_height
+                    = db.obtain_service<dbs_dynamic_global_property>().get().last_irreversible_block_num;
                 if (cutoff_height >= 200)
                 {
                     auto block = db.fetch_block_by_number(cutoff_height);
@@ -126,7 +153,7 @@ BOOST_AUTO_TEST_CASE(undo_block)
             database db;
             db_setup_and_open(db, data_dir.path());
             fc::time_point_sec now(TEST_GENESIS_TIMESTAMP);
-            std::vector<time_point_sec> time_stack;
+            std::vector<fc::time_point_sec> time_stack;
 
             auto init_account_priv_key = fc::ecc::private_key::regenerate(fc::sha256::hash(std::string(TEST_INIT_KEY)));
             for (uint32_t i = 0; i < 5; ++i)
@@ -281,7 +308,7 @@ BOOST_AUTO_TEST_CASE(switch_forks_undo_create)
         auto b = db1.generate_block(db1.get_slot_time(1), db1.get_scheduled_witness(1), init_account_priv_key,
                                     database::skip_nothing);
 
-        auto alice_id = db1.get_account("alice").id;
+        auto alice_id = db1.obtain_service<dbs_account>().get_account("alice").id;
         BOOST_CHECK(db1.get(alice_id).name == "alice");
 
         b = db2.generate_block(db2.get_slot_time(1), db2.get_scheduled_witness(1), init_account_priv_key,
@@ -360,8 +387,8 @@ BOOST_AUTO_TEST_CASE(duplicate_transactions)
 
         SCORUM_CHECK_THROW(PUSH_TX(db1, trx, skip_sigs), fc::exception);
         SCORUM_CHECK_THROW(PUSH_TX(db2, trx, skip_sigs), fc::exception);
-        BOOST_CHECK_EQUAL(db1.get_balance("alice", SCORUM_SYMBOL).amount.value, 500);
-        BOOST_CHECK_EQUAL(db2.get_balance("alice", SCORUM_SYMBOL).amount.value, 500);
+        BOOST_CHECK_EQUAL(db1.obtain_service<dbs_account>().get_account("alice").balance.amount, 500);
+        BOOST_CHECK_EQUAL(db1.obtain_service<dbs_account>().get_account("alice").balance.amount, 500);
     }
     catch (fc::exception& e)
     {
@@ -435,11 +462,11 @@ BOOST_AUTO_TEST_CASE(tapos)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(optional_tapos, clean_database_fixture)
+BOOST_FIXTURE_TEST_CASE(optional_tapos, database_default_integration_fixture)
 {
     try
     {
-        idump((db.get_account(TEST_INIT_DELEGATE_NAME)));
+        idump((db.obtain_service<dbs_account>().get_account(TEST_INIT_DELEGATE_NAME)));
         ACTORS((alice)(bob));
 
         generate_block();
@@ -504,7 +531,7 @@ BOOST_FIXTURE_TEST_CASE(optional_tapos, clean_database_fixture)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(double_sign_check, clean_database_fixture)
+BOOST_FIXTURE_TEST_CASE(double_sign_check, database_default_integration_fixture)
 {
     try
     {
@@ -550,7 +577,7 @@ BOOST_FIXTURE_TEST_CASE(double_sign_check, clean_database_fixture)
     FC_LOG_AND_RETHROW()
 }
 
-BOOST_FIXTURE_TEST_CASE(pop_block_twice, clean_database_fixture)
+BOOST_FIXTURE_TEST_CASE(pop_block_twice, database_default_integration_fixture)
 {
     try
     {
@@ -568,7 +595,7 @@ BOOST_FIXTURE_TEST_CASE(pop_block_twice, clean_database_fixture)
         transaction tx;
         signed_transaction ptx;
 
-        db.get_account(TEST_INIT_DELEGATE_NAME);
+        db.obtain_service<dbs_account>().get_account(TEST_INIT_DELEGATE_NAME);
         // transfer from committee account to Sam account
         transfer(TEST_INIT_DELEGATE_NAME, "sam", asset(100000, SCORUM_SYMBOL));
 
@@ -589,14 +616,14 @@ BOOST_FIXTURE_TEST_CASE(pop_block_twice, clean_database_fixture)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(rsf_missed_blocks, clean_database_fixture)
+BOOST_FIXTURE_TEST_CASE(rsf_missed_blocks, database_default_integration_fixture)
 {
     try
     {
         generate_block();
 
         auto rsf = [&]() -> std::string {
-            fc::uint128 rsf = db.get_dynamic_global_properties().recent_slots_filled;
+            fc::uint128 rsf = db.obtain_service<dbs_dynamic_global_property>().get().recent_slots_filled;
             std::string result = "";
             result.reserve(128);
             for (int i = 0; i < 128; i++)
@@ -615,43 +642,43 @@ BOOST_FIXTURE_TEST_CASE(rsf_missed_blocks, clean_database_fixture)
         BOOST_CHECK_EQUAL(db.witness_participation_rate(), uint32_t(SCORUM_100_PERCENT));
 
         BOOST_TEST_MESSAGE("Generating a block skipping 1");
-        generate_block(~database::skip_fork_db, init_account_priv_key, 1);
+        generate_block(~database::skip_fork_db, initdelegate.private_key, 1);
         BOOST_CHECK_EQUAL(rsf(), "0111111111111111111111111111111111111111111111111111111111111111"
                                  "1111111111111111111111111111111111111111111111111111111111111111");
         BOOST_CHECK_EQUAL(db.witness_participation_rate(), pct(127));
 
         BOOST_TEST_MESSAGE("Generating a block skipping 1");
-        generate_block(~database::skip_fork_db, init_account_priv_key, 1);
+        generate_block(~database::skip_fork_db, initdelegate.private_key, 1);
         BOOST_CHECK_EQUAL(rsf(), "0101111111111111111111111111111111111111111111111111111111111111"
                                  "1111111111111111111111111111111111111111111111111111111111111111");
         BOOST_CHECK_EQUAL(db.witness_participation_rate(), pct(126));
 
         BOOST_TEST_MESSAGE("Generating a block skipping 2");
-        generate_block(~database::skip_fork_db, init_account_priv_key, 2);
+        generate_block(~database::skip_fork_db, initdelegate.private_key, 2);
         BOOST_CHECK_EQUAL(rsf(), "0010101111111111111111111111111111111111111111111111111111111111"
                                  "1111111111111111111111111111111111111111111111111111111111111111");
         BOOST_CHECK_EQUAL(db.witness_participation_rate(), pct(124));
 
         BOOST_TEST_MESSAGE("Generating a block for skipping 3");
-        generate_block(~database::skip_fork_db, init_account_priv_key, 3);
+        generate_block(~database::skip_fork_db, initdelegate.private_key, 3);
         BOOST_CHECK_EQUAL(rsf(), "0001001010111111111111111111111111111111111111111111111111111111"
                                  "1111111111111111111111111111111111111111111111111111111111111111");
         BOOST_CHECK_EQUAL(db.witness_participation_rate(), pct(121));
 
         BOOST_TEST_MESSAGE("Generating a block skipping 5");
-        generate_block(~database::skip_fork_db, init_account_priv_key, 5);
+        generate_block(~database::skip_fork_db, initdelegate.private_key, 5);
         BOOST_CHECK_EQUAL(rsf(), "0000010001001010111111111111111111111111111111111111111111111111"
                                  "1111111111111111111111111111111111111111111111111111111111111111");
         BOOST_CHECK_EQUAL(db.witness_participation_rate(), pct(116));
 
         BOOST_TEST_MESSAGE("Generating a block skipping 8");
-        generate_block(~database::skip_fork_db, init_account_priv_key, 8);
+        generate_block(~database::skip_fork_db, initdelegate.private_key, 8);
         BOOST_CHECK_EQUAL(rsf(), "0000000010000010001001010111111111111111111111111111111111111111"
                                  "1111111111111111111111111111111111111111111111111111111111111111");
         BOOST_CHECK_EQUAL(db.witness_participation_rate(), pct(108));
 
         BOOST_TEST_MESSAGE("Generating a block skipping 13");
-        generate_block(~database::skip_fork_db, init_account_priv_key, 13);
+        generate_block(~database::skip_fork_db, initdelegate.private_key, 13);
         BOOST_CHECK_EQUAL(rsf(), "0000000000000100000000100000100010010101111111111111111111111111"
                                  "1111111111111111111111111111111111111111111111111111111111111111");
         BOOST_CHECK_EQUAL(db.witness_participation_rate(), pct(95));
@@ -678,12 +705,12 @@ BOOST_FIXTURE_TEST_CASE(rsf_missed_blocks, clean_database_fixture)
                                  "1111111111111111111111111111111111111111111111111111111111111111");
         BOOST_CHECK_EQUAL(db.witness_participation_rate(), pct(95));
 
-        generate_block(~database::skip_fork_db, init_account_priv_key, 64);
+        generate_block(~database::skip_fork_db, initdelegate.private_key, 64);
         BOOST_CHECK_EQUAL(rsf(), "0000000000000000000000000000000000000000000000000000000000000000"
                                  "1111100000000000001000000001000001000100101011111111111111111111");
         BOOST_CHECK_EQUAL(db.witness_participation_rate(), pct(31));
 
-        generate_block(~database::skip_fork_db, init_account_priv_key, 32);
+        generate_block(~database::skip_fork_db, initdelegate.private_key, 32);
         BOOST_CHECK_EQUAL(rsf(), "0000000000000000000000000000000010000000000000000000000000000000"
                                  "0000000000000000000000000000000001111100000000000001000000001000");
         BOOST_CHECK_EQUAL(db.witness_participation_rate(), pct(8));
@@ -691,18 +718,17 @@ BOOST_FIXTURE_TEST_CASE(rsf_missed_blocks, clean_database_fixture)
     FC_LOG_AND_RETHROW()
 }
 
-BOOST_FIXTURE_TEST_CASE(skip_block, clean_database_fixture)
+BOOST_FIXTURE_TEST_CASE(skip_block, database_default_integration_fixture)
 {
     try
     {
         BOOST_TEST_MESSAGE("Skipping blocks through db");
-        BOOST_REQUIRE(db.head_block_num() == 2);
 
         int init_block_num = db.head_block_num();
         int miss_blocks = fc::minutes(1).to_seconds() / SCORUM_BLOCK_INTERVAL;
         auto witness = db.get_scheduled_witness(miss_blocks);
         auto block_time = db.get_slot_time(miss_blocks);
-        db.generate_block(block_time, witness, init_account_priv_key, 0);
+        db.generate_block(block_time, witness, initdelegate.private_key, 0);
 
         BOOST_CHECK_EQUAL(db.head_block_num(), uint32_t(init_block_num + 1));
         BOOST_CHECK(db.head_block_time() == block_time);
@@ -718,7 +744,7 @@ BOOST_FIXTURE_TEST_CASE(skip_block, clean_database_fixture)
 
 /*
 
-BOOST_FIXTURE_TEST_CASE( hardfork_test, database_fixture )
+BOOST_FIXTURE_TEST_CASE( hardfork_test, database_integration_fixture )
 {
    try
    {
@@ -781,7 +807,7 @@ init_account_pub_key, SCORUM_MIN_PRODUCER_REWARD.amount );
       generate_block();
 
       std::string op_msg = "Testnet: Hardfork applied";
-      auto itr = db.get_index< account_history_index >().indices().get< by_id >().end();
+      auto itr = db.get_index< account_operations_full_history_index >().indices().get< by_id >().end();
       itr--;
 
       BOOST_REQUIRE( db.has_hardfork( 0 ) );
@@ -793,7 +819,7 @@ op_msg.end() ) );
       BOOST_TEST_MESSAGE( "Testing hardfork is only applied once" );
       generate_block();
 
-      itr = db.get_index< account_history_index >().indices().get< by_id >().end();
+      itr = db.get_index< account_operations_full_history_index >().indices().get< by_id >().end();
       itr--;
 
       BOOST_REQUIRE( db.has_hardfork( 0 ) );

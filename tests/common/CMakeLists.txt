@@ -7,14 +7,17 @@ endif()
 file(GLOB_RECURSE HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/*.hpp")
 
 set( SOURCES
-  actor.cpp
-  database_fixture.cpp
+  database_integration.cpp
+  database_trx_integration.cpp
+  database_default_integration.cpp
+  actoractions.cpp
 )
 
 add_library(common_test 
             ${SOURCES}
             ${HEADERS})
 target_link_libraries(common_test
+                      ucommon_test
                       HippoMocks
                       chainbase
                       scorum_chain

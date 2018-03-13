@@ -10,9 +10,11 @@ class account_authority_object;
 
 struct account_service_i
 {
+    virtual const account_object& get(const account_id_type&) const = 0;
+
     virtual const account_object& get_account(const account_name_type&) const = 0;
 
-    //    static asset get_balance(const account_object& account, asset_symbol_type symbol);
+    virtual bool is_exists(const account_name_type&) const = 0;
 
     virtual const account_authority_object& get_account_authority(const account_name_type&) const = 0;
 
@@ -49,7 +51,7 @@ struct account_service_i
                                                                  const authority& active,
                                                                  const authority& posting,
                                                                  const asset& fee_in_scorums,
-                                                                 const asset& delegation_in_vests)
+                                                                 const asset& delegation_in_scorumpower)
         = 0;
 
     virtual const account_object& create_account_with_bonus(const account_name_type& new_account_name,
@@ -74,25 +76,20 @@ struct account_service_i
     virtual void increase_balance(const account_object& account, const asset& amount) = 0;
     virtual void decrease_balance(const account_object& account, const asset& amount) = 0;
 
-    virtual void increase_vesting_shares(const account_object& account, const asset& vesting) = 0;
+    virtual void increase_scorumpower(const account_object& account, const asset& amount) = 0;
 
-    virtual void increase_delegated_vesting_shares(const account_object& account, const asset& amount) = 0;
+    virtual void increase_delegated_scorumpower(const account_object& account, const asset& amount) = 0;
 
-    virtual void increase_received_vesting_shares(const account_object& account, const asset& amount) = 0;
-    virtual void decrease_received_vesting_shares(const account_object& account, const asset& amount) = 0;
+    virtual void increase_received_scorumpower(const account_object& account, const asset& amount) = 0;
+    virtual void decrease_received_scorumpower(const account_object& account, const asset& amount) = 0;
+
+    virtual void increase_posting_rewards(const account_object& account, const asset& amount) = 0;
+
+    virtual void increase_curation_rewards(const account_object& account, const asset& amount) = 0;
 
     virtual void drop_challenged(const account_object& account) = 0;
 
     virtual void prove_authority(const account_object& account, bool require_owner) = 0;
-
-    virtual void update_withdraw(const account_object& account,
-                                 const asset& vesting,
-                                 const time_point_sec& next_vesting_withdrawal,
-                                 const share_type& to_withdrawn)
-        = 0;
-
-    virtual void increase_withdraw_routes(const account_object& account) = 0;
-    virtual void decrease_withdraw_routes(const account_object& account) = 0;
 
     virtual void increase_witnesses_voted_for(const account_object& account) = 0;
     virtual void decrease_witnesses_voted_for(const account_object& account) = 0;
@@ -118,7 +115,7 @@ struct account_service_i
 
     virtual void update_voting_proxy(const account_object& account, const optional<account_object>& proxy_account) = 0;
 
-    virtual const asset create_vesting(const account_object& to_account, const asset& scorum) = 0;
+    virtual const asset create_scorumpower(const account_object& to_account, const asset& scorum) = 0;
 
     virtual void clear_witness_votes(const account_object& account) = 0;
 
@@ -129,6 +126,10 @@ struct account_service_i
 
     virtual void adjust_proxied_witness_votes(const account_object& account, const share_type& delta, int depth = 0)
         = 0;
+
+    using modifier_type = std::function<void(account_object&)>;
+
+    virtual void update(const account_object& obj, const modifier_type&) = 0;
 };
 
 // DB operations with account_*** objects
@@ -141,9 +142,11 @@ protected:
     explicit dbs_account(database& db);
 
 public:
-    static asset get_balance(const account_object& account, asset_symbol_type symbol);
+    virtual const account_object& get(const account_id_type&) const override;
 
     virtual const account_object& get_account(const account_name_type&) const override;
+
+    virtual bool is_exists(const account_name_type&) const override;
 
     virtual const account_authority_object& get_account_authority(const account_name_type&) const override;
 
@@ -178,7 +181,7 @@ public:
                                                                  const authority& active,
                                                                  const authority& posting,
                                                                  const asset& fee_in_scorums,
-                                                                 const asset& delegation_in_vests) override;
+                                                                 const asset& delegation_in_scorumpower) override;
 
     virtual const account_object& create_account_with_bonus(const account_name_type& new_account_name,
                                                             const account_name_type& creator_name,
@@ -200,24 +203,20 @@ public:
     virtual void increase_balance(const account_object& account, const asset& amount) override;
     virtual void decrease_balance(const account_object& account, const asset& amount) override;
 
-    virtual void increase_vesting_shares(const account_object& account, const asset& vesting) override;
+    virtual void increase_scorumpower(const account_object& account, const asset& amount) override;
 
-    virtual void increase_delegated_vesting_shares(const account_object& account, const asset& amount) override;
+    virtual void increase_delegated_scorumpower(const account_object& account, const asset& amount) override;
 
-    virtual void increase_received_vesting_shares(const account_object& account, const asset& amount) override;
-    virtual void decrease_received_vesting_shares(const account_object& account, const asset& amount) override;
+    virtual void increase_received_scorumpower(const account_object& account, const asset& amount) override;
+    virtual void decrease_received_scorumpower(const account_object& account, const asset& amount) override;
+
+    virtual void increase_posting_rewards(const account_object& account, const asset& amount) override;
+
+    virtual void increase_curation_rewards(const account_object& account, const asset& amount) override;
 
     virtual void drop_challenged(const account_object& account) override;
 
     virtual void prove_authority(const account_object& account, bool require_owner) override;
-
-    virtual void update_withdraw(const account_object& account,
-                                 const asset& vesting,
-                                 const time_point_sec& next_vesting_withdrawal,
-                                 const share_type& to_withdrawn) override;
-
-    virtual void increase_withdraw_routes(const account_object& account) override;
-    virtual void decrease_withdraw_routes(const account_object& account) override;
 
     virtual void increase_witnesses_voted_for(const account_object& account) override;
     virtual void decrease_witnesses_voted_for(const account_object& account) override;
@@ -242,12 +241,12 @@ public:
                                      const optional<account_object>& proxy_account) override;
 
     /**
-     * @param to_account - the account to receive the new vesting shares
-     * @param scorum - SCR to be converted to vesting shares
+     * @param to_account - the account to receive the new scorumpower
+     * @param scorum - SCR to be converted to SP
      * @param to_reward_balance
      * @return the SP created and deposited to account
      */
-    virtual const asset create_vesting(const account_object& to_account, const asset& scorum) override;
+    virtual const asset create_scorumpower(const account_object& to_account, const asset& scorum) override;
 
     /** clears all vote records for a particular account but does not update the
      * witness vote totals.  Vote totals should be updated first via a call to
@@ -263,6 +262,8 @@ public:
     /** this updates the votes for all witnesses as a result of account SP changing */
     virtual void
     adjust_proxied_witness_votes(const account_object& account, const share_type& delta, int depth = 0) override;
+
+    virtual void update(const account_object& obj, const modifier_type&) override;
 
 private:
     const account_object& _create_account_objects(const account_name_type& new_account_name,

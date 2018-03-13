@@ -3,10 +3,11 @@
 
 #include <scorum/protocol/exceptions.hpp>
 
-#include <scorum/chain/database.hpp>
+#include <scorum/chain/database/database.hpp>
 #include <scorum/chain/database_exceptions.hpp>
 #include <scorum/chain/hardfork.hpp>
 #include <scorum/chain/schema/scorum_objects.hpp>
+#include <scorum/chain/services/escrow.hpp>
 
 #include <scorum/chain/util/reward.hpp>
 
@@ -14,18 +15,15 @@
 
 #include <fc/crypto/digest.hpp>
 
-#include "database_fixture.hpp"
+#include "database_default_integration.hpp"
 
 #include <cmath>
 #include <iostream>
 #include <stdexcept>
 
-using namespace scorum;
-using namespace scorum::chain;
-using namespace scorum::protocol;
-using fc::string;
+using namespace database_fixture;
 
-struct escrow_transfer_apply_fixture : public clean_database_fixture
+struct escrow_transfer_apply_fixture : public database_default_integration_fixture
 {
     escrow_transfer_apply_fixture()
     {
@@ -108,6 +106,8 @@ BOOST_AUTO_TEST_CASE(success_escrow_transfer_apply)
 {
     try
     {
+        auto& escrow_service = db.obtain_service<dbs_escrow>();
+
         ACTORS((alice)(bob)(sam))
 
         fund("alice", 10000);
@@ -126,7 +126,7 @@ BOOST_AUTO_TEST_CASE(success_escrow_transfer_apply)
 
         db.push_transaction(tx, 0);
 
-        const auto& escrow = db.get_escrow(op.from, op.escrow_id);
+        const auto& escrow = escrow_service.get(op.from, op.escrow_id);
 
         BOOST_REQUIRE(escrow.escrow_id == op.escrow_id);
         BOOST_REQUIRE(escrow.from == op.from);
