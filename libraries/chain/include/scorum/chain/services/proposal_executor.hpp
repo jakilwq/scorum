@@ -16,12 +16,10 @@ struct proposal_executor_service_i
     virtual void operator()(const proposal_object& proposal) = 0;
 };
 
-class dbs_proposal_executor : public dbs_base, public proposal_executor_service_i
+class proposal_executor : public proposal_executor_service_i
 {
-    friend class dbservice_dbs_factory;
-
 public:
-    explicit dbs_proposal_executor(database& s);
+    explicit proposal_executor(data_service_factory_i& s);
 
     void operator()(const proposal_object& proposal) override;
 

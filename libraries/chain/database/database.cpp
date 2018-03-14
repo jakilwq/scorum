@@ -1085,7 +1085,7 @@ void database::initialize_evaluators()
     _my->_evaluator_registry.register_evaluator<proposal_create_evaluator>();
 
     _my->_evaluator_registry.register_evaluator<proposal_vote_evaluator>(
-        new proposal_vote_evaluator(*this, this->obtain_service<dbs_proposal_executor>()));
+        new proposal_vote_evaluator(*this, this->obtain_service<proposal_executor>()));
 
     _my->_evaluator_registry.register_evaluator<proposal_create_evaluator>();
     _my->_evaluator_registry.register_evaluator<set_withdraw_scorumpower_route_to_dev_pool_evaluator>();

@@ -13,9 +13,8 @@
 namespace scorum {
 namespace chain {
 
-dbs_proposal_executor::dbs_proposal_executor(database& s)
-    : _base_type(s)
-    , services(s)
+proposal_executor::proposal_executor(data_service_factory_i& s)
+    : services(s)
     , proposal_service(services.proposal_service())
     , evaluators(services)
 {
@@ -33,13 +32,13 @@ dbs_proposal_executor::dbs_proposal_executor(database& s)
     evaluators.register_evaluator<development_committee::proposal_transfer_evaluator>();
 }
 
-void dbs_proposal_executor::operator()(const proposal_object& proposal)
+void proposal_executor::operator()(const proposal_object& proposal)
 {
     execute_proposal(proposal);
     update_proposals_voting_list_and_execute();
 }
 
-bool dbs_proposal_executor::is_quorum(const proposal_object& proposal)
+bool proposal_executor::is_quorum(const proposal_object& proposal)
 {
     committee_i& committee_service = proposal.operation.visit(get_operation_committee_visitor(services));
     const size_t votes = proposal_service.get_votes(proposal);
@@ -48,7 +47,7 @@ bool dbs_proposal_executor::is_quorum(const proposal_object& proposal)
     return utils::is_quorum(votes, members_count, proposal.quorum_percent);
 }
 
-void dbs_proposal_executor::execute_proposal(const proposal_object& proposal)
+void proposal_executor::execute_proposal(const proposal_object& proposal)
 {
     if (is_quorum(proposal))
     {
@@ -58,7 +57,7 @@ void dbs_proposal_executor::execute_proposal(const proposal_object& proposal)
     }
 }
 
-void dbs_proposal_executor::update_proposals_voting_list_and_execute()
+void proposal_executor::update_proposals_voting_list_and_execute()
 {
     while (!removed_members.empty())
     {
