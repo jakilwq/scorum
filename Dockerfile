@@ -51,6 +51,8 @@ RUN \
 
 ADD . /usr/local/src/scorum
 
+RUN git submodule update --init --recursive
+ 
 RUN \
     cd /usr/local/src/scorum && \
     mkdir build && \
