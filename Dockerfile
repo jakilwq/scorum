@@ -51,7 +51,7 @@ RUN \
 
 ADD . /usr/local/src/scorum
 
-RUN git submodule update --init --recursive
+RUN git -C /usr/local/src/scorum submodule update --init --recursive
  
 RUN \
     cd /usr/local/src/scorum && \
