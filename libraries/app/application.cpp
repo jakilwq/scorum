@@ -1065,7 +1065,7 @@ public:
 
     // These plugins have API that push block to DB.
     // It is not expected for read-only mode
-    const plugin_names_type _plugins_locked_in_readonly_mode = { "witness", "raw_block", "debug_node" };
+    const plugin_names_type _plugins_locked_in_readonly_mode = { "witness", "debug_node" };
 
     plugins_type _plugins_available;
     plugins_type _plugins_enabled;
