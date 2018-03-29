@@ -7,6 +7,7 @@ add_library( scorum_app
              application.cpp
              impacted.cpp
              plugin.cpp
+             comments_api.cpp
              ${HEADERS}
              ${EGENESIS_HEADERS}
            )
