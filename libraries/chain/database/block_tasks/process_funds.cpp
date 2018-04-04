@@ -55,6 +55,16 @@ void process_funds::on_apply(block_task_context& ctx)
     asset users_reward = reward_service.take_block_reward();
 
     distribute_reward(ctx, users_reward);
+
+#if 1
+    {
+        dynamic_global_property_service_i& dgp_service = services.dynamic_global_property_service();
+        reward_fund_service_i& reward_fund_service = services.reward_fund_service();
+        auto num = dgp_service.get().head_block_number;
+        wlog("process_funds #${n}, rf = ${rc}",
+             ("n", num)("rc", reward_fund_service.get().activity_reward_balance_scr));
+    }
+#endif
 }
 
 void process_funds::distribute_reward(block_task_context& ctx, const asset& users_reward)

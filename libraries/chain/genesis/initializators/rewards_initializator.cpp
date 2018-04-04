@@ -39,7 +39,12 @@ void rewards_initializator_impl::on_apply(initializator_context& ctx)
     FC_ASSERT(!reward_service.is_exists());
     reward_service.create_balancer(asset(0, SCORUM_SYMBOL));
 
-    fc::time_point deadline = dgp_service.get_genesis_time() + fc::days(SCORUM_REWARDS_INITIAL_SUPPLY_PERIOD_IN_DAYS);
+    fc::time_point deadline = dgp_service.get_genesis_time();
+#if 1
+    deadline += fc::days((2 * 365));
+#else
+    deadline += SCORUM_REWARDS_INITIAL_SUPPLY_PERIOD_IN_DAYS;
+#endif
 
     budget_service.create_fund_budget(ctx.genesis_state().rewards_supply, deadline);
 }

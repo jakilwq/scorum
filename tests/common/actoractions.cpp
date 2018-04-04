@@ -23,12 +23,12 @@ void ActorActions::transfer(const Actor& a, asset amount)
     _chain.transfer(_actor.name, a.name, amount);
 }
 
-void ActorActions::give_scr(const Actor& a, int amount)
+void ActorActions::give_scr(const Actor& a, int64_t amount)
 {
     transfer(a, ASSET_SCR(amount));
 }
 
-void ActorActions::give_sp(const Actor& a, int amount)
+void ActorActions::give_sp(const Actor& a, int64_t amount)
 {
     transfer_to_scorumpower(a, ASSET_SCR(amount));
 }

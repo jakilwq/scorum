@@ -17,8 +17,8 @@ public:
     void transfer_to_scorumpower(const Actor& a, asset amount);
     void transfer(const Actor& a, asset amount);
 
-    void give_scr(const Actor& a, int amount);
-    void give_sp(const Actor& a, int amount);
+    void give_scr(const Actor& a, int64_t amount);
+    void give_sp(const Actor& a, int64_t amount);
 
 private:
     chain_type& _chain;

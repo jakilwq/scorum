@@ -11,6 +11,7 @@ set( SOURCES
     rewards/vote_apply_tests.cpp
     rewards/comment_beneficiaries_apply_tests.cpp
     rewards/per_block_reward_distribution.cpp
+    rewards/reward_fund.cpp
     registration/registration_check_common.cpp
     registration/committee_service_tests.cpp
     registration/committee_operations_tests.cpp

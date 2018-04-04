@@ -37,6 +37,13 @@ void process_comments_cashout::on_apply(block_task_context& ctx)
 
     uint128_t recent_claims = get_recent_claims(ctx, comments);
 
+#if 1
+    {
+        auto num = dgp_service.get().head_block_number;
+        wlog("process_comments_cashout #${n}, rc = ${rc}", ("n", num)("rc", recent_claims.to_uint64()));
+    }
+#endif
+
     /*
      * Payout all comments
      *
