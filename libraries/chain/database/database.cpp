@@ -36,9 +36,8 @@
 #include <scorum/chain/schema/chain_property_object.hpp>
 #include <scorum/chain/schema/dev_committee_object.hpp>
 #include <scorum/chain/schema/dynamic_global_property_object.hpp>
-#include <scorum/chain/schema/operation_object.hpp>
 #include <scorum/chain/schema/registration_objects.hpp>
-#include <scorum/chain/schema/reward_pool_object.hpp>
+#include <scorum/chain/schema/reward_balancer_object.hpp>
 #include <scorum/chain/schema/scorum_objects.hpp>
 #include <scorum/chain/schema/transaction_object.hpp>
 #include <scorum/chain/schema/withdraw_scorumpower_objects.hpp>
@@ -51,7 +50,7 @@
 #include <scorum/chain/services/hardfork_property.hpp>
 #include <scorum/chain/services/proposal.hpp>
 #include <scorum/chain/services/registration_pool.hpp>
-#include <scorum/chain/services/reward.hpp>
+#include <scorum/chain/services/reward_balancer.hpp>
 #include <scorum/chain/services/reward_fund.hpp>
 #include <scorum/chain/services/witness.hpp>
 #include <scorum/chain/services/witness_schedule.hpp>
@@ -598,6 +597,13 @@ bool database::_push_block(const signed_block& new_block)
     FC_CAPTURE_AND_RETHROW()
 }
 
+uint32_t database::get_last_irreversible_block_num() const
+{
+    const dynamic_global_property_object& dpo = obtain_service<dbs_dynamic_global_property>().get();
+
+    return dpo.last_irreversible_block_num;
+}
+
 /**
  * Attempts to push the transaction into the pending queue
  *
@@ -1120,7 +1126,6 @@ void database::initialize_indexes()
     add_index<dynamic_global_property_index>();
     add_index<escrow_index>();
     add_index<hardfork_property_index>();
-    add_index<operation_index>();
     add_index<owner_authority_history_index>();
     add_index<proposal_object_index>();
     add_index<registration_committee_member_index>();
@@ -1909,9 +1914,9 @@ void database::validate_invariants() const
             }
         }
 
-        total_supply += obtain_service<dbs_reward_fund>().get().reward_balance;
+        total_supply += obtain_service<dbs_reward_fund>().get().activity_reward_balance_scr;
         total_supply += asset(gpo.total_scorumpower.amount, SCORUM_SYMBOL);
-        total_supply += obtain_service<dbs_reward>().get_pool().balance;
+        total_supply += obtain_service<dbs_reward>().get().balance;
 
         for (const budget_object& budget : obtain_service<dbs_budget>().get_budgets())
         {

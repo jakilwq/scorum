@@ -19,15 +19,17 @@
 #include <scorum/chain/services/withdraw_scorumpower_route.hpp>
 #include <scorum/chain/services/witness_schedule.hpp>
 #include <scorum/chain/services/registration_pool.hpp>
-#include <scorum/chain/services/reward.hpp>
+#include <scorum/chain/services/reward_balancer.hpp>
 
 #include <scorum/chain/schema/committee.hpp>
 #include <scorum/chain/schema/proposal_object.hpp>
 #include <scorum/chain/schema/withdraw_scorumpower_objects.hpp>
 #include <scorum/chain/schema/registration_objects.hpp>
 #include <scorum/chain/schema/budget_object.hpp>
-#include <scorum/chain/schema/reward_pool_object.hpp>
+#include <scorum/chain/schema/reward_balancer_object.hpp>
 #include <scorum/chain/schema/scorum_objects.hpp>
+
+#include <scorum/common_api/config.hpp>
 
 #include <fc/bloom_filter.hpp>
 #include <fc/smart_ref_impl.hpp>
@@ -42,13 +44,8 @@
 #include <cfenv>
 #include <iostream>
 
-#define GET_REQUIRED_FEES_MAX_RECURSION (4)
-
 namespace scorum {
 namespace app {
-
-constexpr uint32_t LOOKUP_LIMIT = 1000;
-constexpr uint32_t GET_ACCOUNT_HISTORY_LIMIT = 10000;
 
 class database_api_impl;
 
@@ -64,7 +61,8 @@ public:
     // Blocks and transactions
     optional<block_header> get_block_header(uint32_t block_num) const;
     optional<signed_block_api_obj> get_block(uint32_t block_num) const;
-    std::vector<applied_operation> get_ops_in_block(uint32_t block_num, bool only_virtual) const;
+    std::map<uint32_t, block_header> get_block_headers_history(uint32_t block_num, uint32_t limit) const;
+    std::map<uint32_t, signed_block_api_obj> get_blocks_history(uint32_t block_num, uint32_t limit) const;
 
     // Globals
     fc::variant_object get_config() const;
@@ -127,22 +125,6 @@ public:
     registration_committee_api_obj get_registration_committee() const;
     development_committee_api_obj get_development_committee() const;
 };
-
-applied_operation::applied_operation()
-{
-}
-
-applied_operation::applied_operation(const operation_object& op_obj)
-    : trx_id(op_obj.trx_id)
-    , block(op_obj.block)
-    , trx_in_block(op_obj.trx_in_block)
-    , op_in_trx(op_obj.op_in_trx)
-    , virtual_op(op_obj.virtual_op)
-    , timestamp(op_obj.timestamp)
-{
-    // fc::raw::unpack( op_obj.serialized_op, op );     // g++ refuses to compile this as ambiguous
-    op = fc::raw::unpack<operation>(op_obj.serialized_op);
-}
 
 void find_accounts(std::set<std::string>& accounts, const discussion& d)
 {
@@ -258,25 +240,36 @@ optional<signed_block_api_obj> database_api_impl::get_block(uint32_t block_num) 
     return _db.fetch_block_by_number(block_num);
 }
 
-std::vector<applied_operation> database_api::get_ops_in_block(uint32_t block_num, bool only_virtual) const
+std::map<uint32_t, block_header> database_api::get_block_headers_history(uint32_t block_num, uint32_t limit) const
 {
-    return my->_db.with_read_lock([&]() { return my->get_ops_in_block(block_num, only_virtual); });
+    FC_ASSERT(!_app.is_read_only(), "Disabled for read only mode");
+    return my->_db.with_read_lock([&]() { return my->get_block_headers_history(block_num, limit); });
 }
 
-std::vector<applied_operation> database_api_impl::get_ops_in_block(uint32_t block_num, bool only_virtual) const
+std::map<uint32_t, block_header> database_api_impl::get_block_headers_history(uint32_t block_num, uint32_t limit) const
 {
-    const auto& idx = _db.get_index<operation_index>().indices().get<by_location>();
-    auto itr = idx.lower_bound(block_num);
-    std::vector<applied_operation> result;
-    applied_operation temp;
-    while (itr != idx.end() && itr->block == block_num)
-    {
-        temp = *itr;
-        if (!only_virtual || is_virtual_operation(temp.op))
-            result.push_back(temp);
-        ++itr;
-    }
-    return result;
+    FC_ASSERT(limit <= MAX_BLOCKS_HISTORY_DEPTH, "Limit of ${l} is greater than maxmimum allowed ${2}",
+              ("l", limit)("2", MAX_BLOCKS_HISTORY_DEPTH));
+
+    std::map<uint32_t, block_header> ret;
+    _db.get_blocks_history_by_number<block_header>(ret, block_num, limit);
+    return ret;
+}
+
+std::map<uint32_t, signed_block_api_obj> database_api::get_blocks_history(uint32_t block_num, uint32_t limit) const
+{
+    FC_ASSERT(!_app.is_read_only(), "Disabled for read only mode");
+    return my->_db.with_read_lock([&]() { return my->get_blocks_history(block_num, limit); });
+}
+
+std::map<uint32_t, signed_block_api_obj> database_api_impl::get_blocks_history(uint32_t block_num, uint32_t limit) const
+{
+    FC_ASSERT(limit <= MAX_BLOCKS_HISTORY_DEPTH, "Limit of ${l} is greater than maxmimum allowed ${2}",
+              ("l", limit)("2", MAX_BLOCKS_HISTORY_DEPTH));
+
+    std::map<uint32_t, signed_block_api_obj> ret;
+    _db.get_blocks_history_by_number<signed_block_api_obj>(ret, block_num, limit);
+    return ret;
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -323,8 +316,8 @@ dynamic_global_property_api_obj database_api_impl::get_dynamic_global_properties
 
     gpao.registration_pool_balance = _db.obtain_service<dbs_registration_pool>().get().balance;
     gpao.fund_budget_balance = _db.obtain_service<dbs_budget>().get_fund_budget().balance;
-    gpao.reward_pool_balance = _db.obtain_service<dbs_reward>().get_pool().balance;
-    gpao.content_reward_balance = _db.obtain_service<dbs_reward_fund>().get().reward_balance;
+    gpao.reward_pool_balance = _db.obtain_service<dbs_reward>().get().balance;
+    gpao.content_reward_balance = _db.obtain_service<dbs_reward_fund>().get().activity_reward_balance_scr;
 
     return gpao;
 }
@@ -1010,7 +1003,7 @@ void database_api::set_pending_payout(discussion& d) const
 
     const auto& reward_fund_obj = my->_db.obtain_service<dbs_reward_fund>().get();
 
-    asset pot = reward_fund_obj.reward_balance;
+    asset pot = reward_fund_obj.activity_reward_balance_scr;
     u256 total_r2 = to256(reward_fund_obj.recent_claims);
     if (total_r2 > 0)
     {
@@ -1076,8 +1069,8 @@ std::vector<budget_api_obj> database_api::get_budgets(const std::set<std::string
 
 std::vector<budget_api_obj> database_api_impl::get_budgets(const std::set<std::string>& names) const
 {
-    FC_ASSERT(names.size() <= SCORUM_BUDGET_LIMIT_API_LIST_SIZE, "names size must be less or equal than ${1}",
-              ("1", SCORUM_BUDGET_LIMIT_API_LIST_SIZE));
+    FC_ASSERT(names.size() <= MAX_BUDGETS_LIST_SIZE, "names size must be less or equal than ${1}",
+              ("1", MAX_BUDGETS_LIST_SIZE));
 
     std::vector<budget_api_obj> results;
 
@@ -1086,7 +1079,7 @@ std::vector<budget_api_obj> database_api_impl::get_budgets(const std::set<std::s
     for (const auto& name : names)
     {
         auto budgets = budget_service.get_budgets(name);
-        if (results.size() + budgets.size() > SCORUM_BUDGET_LIMIT_API_LIST_SIZE)
+        if (results.size() + budgets.size() > MAX_BUDGETS_LIST_SIZE)
         {
             break;
         }
@@ -1107,8 +1100,7 @@ std::set<std::string> database_api::lookup_budget_owners(const std::string& lowe
 
 std::set<std::string> database_api_impl::lookup_budget_owners(const std::string& lower_bound_name, uint32_t limit) const
 {
-    FC_ASSERT(limit <= SCORUM_BUDGET_LIMIT_API_LIST_SIZE, "limit must be less or equal than ${1}",
-              ("1", SCORUM_BUDGET_LIMIT_API_LIST_SIZE));
+    FC_ASSERT(limit <= MAX_BUDGETS_LIST_SIZE, "limit must be less or equal than ${1}", ("1", MAX_BUDGETS_LIST_SIZE));
 
     chain::dbs_budget& budget_service = _db.obtain_service<chain::dbs_budget>();
 
@@ -2106,36 +2098,6 @@ state database_api::get_state(std::string path) const
         }
         return _state;
     });
-}
-
-annotated_signed_transaction database_api::get_transaction(transaction_id_type id) const
-{
-#ifdef SKIP_BY_TX_ID
-    FC_ASSERT(false, "This node's operator has disabled operation indexing by transaction_id");
-#else
-    if (_app.is_read_only())
-    {
-        return _app.get_write_node_database_api()->get_transaction(id);
-    }
-    else
-    {
-        return my->_db.with_read_lock([&]() {
-            const auto& idx = my->_db.get_index<operation_index>().indices().get<by_transaction_id>();
-            auto itr = idx.lower_bound(id);
-            if (itr != idx.end() && itr->trx_id == id)
-            {
-                auto blk = my->_db.fetch_block_by_number(itr->block);
-                FC_ASSERT(blk.valid());
-                FC_ASSERT(blk->transactions.size() > itr->trx_in_block);
-                annotated_signed_transaction result = blk->transactions[itr->trx_in_block];
-                result.block_num = itr->block;
-                result.transaction_num = itr->trx_in_block;
-                return result;
-            }
-            FC_ASSERT(false, "Unknown Transaction ${t}", ("t", id));
-        });
-    }
-#endif
 }
 } // namespace app
 } // namespace scorum

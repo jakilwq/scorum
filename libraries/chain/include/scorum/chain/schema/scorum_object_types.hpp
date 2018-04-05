@@ -49,13 +49,12 @@ enum object_type
     dynamic_global_property_object_type,
     escrow_object_type,
     hardfork_property_object_type,
-    operation_object_type,
     owner_authority_history_object_type,
     proposal_object_type,
     registration_committee_member_object_type,
     registration_pool_object_type,
     reward_fund_object_type,
-    reward_pool_object_type,
+    reward_balancer_object_type,
     transaction_object_type,
     scorumpower_delegation_expiration_object_type,
     scorumpower_delegation_object_type,
@@ -84,13 +83,12 @@ class decline_voting_rights_request_object;
 class dynamic_global_property_object;
 class escrow_object;
 class hardfork_property_object;
-class operation_object;
 class owner_authority_history_object;
 class proposal_object;
 class registration_committee_member_object;
 class registration_pool_object;
 class reward_fund_object;
-class reward_pool_object;
+class reward_balancer_object;
 class transaction_object;
 class scorumpower_delegation_expiration_object;
 class scorumpower_delegation_object;
@@ -118,13 +116,12 @@ using decline_voting_rights_request_id_type = oid<decline_voting_rights_request_
 using dynamic_global_property_id_type = oid<dynamic_global_property_object>;
 using escrow_id_type = oid<escrow_object>;
 using hardfork_property_id_type = oid<hardfork_property_object>;
-using operation_id_type = oid<operation_object>;
 using owner_authority_history_id_type = oid<owner_authority_history_object>;
 using proposal_id_type = oid<proposal_object>;
 using registration_committee_member_id_type = oid<registration_committee_member_object>;
 using registration_pool_id_type = oid<registration_pool_object>;
 using reward_fund_id_type = oid<reward_fund_object>;
-using reward_pool_id_type = oid<reward_pool_object>;
+using reward_pool_id_type = oid<reward_balancer_object>;
 using transaction_object_id_type = oid<transaction_object>;
 using scorumpower_delegation_expiration_id_type = oid<scorumpower_delegation_expiration_object>;
 using scorumpower_delegation_id_type = oid<scorumpower_delegation_object>;
@@ -166,13 +163,12 @@ FC_REFLECT_ENUM(scorum::chain::object_type,
                 (dynamic_global_property_object_type)
                 (escrow_object_type)
                 (hardfork_property_object_type)
-                (operation_object_type)
                 (owner_authority_history_object_type)
                 (proposal_object_type)
                 (registration_committee_member_object_type)
                 (registration_pool_object_type)
                 (reward_fund_object_type)
-                (reward_pool_object_type)
+                (reward_balancer_object_type)
                 (transaction_object_type)
                 (scorumpower_delegation_expiration_object_type)
                 (scorumpower_delegation_object_type)
