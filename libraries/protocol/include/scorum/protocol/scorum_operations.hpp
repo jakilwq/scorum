@@ -96,7 +96,7 @@ struct account_update_operation : public base_operation
 
 struct comment_operation : public base_operation
 {
-    // can be null if this is a top level comment
+    // can be null if this is a 'top level comment' -> post
     account_name_type parent_author;
 
     // became category if parent_author is empty
