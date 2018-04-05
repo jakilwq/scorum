@@ -20,6 +20,7 @@
 #include <fc/crypto/digest.hpp>
 #include "database_trx_integration.hpp"
 
+#include <sstream>
 #include <cmath>
 
 using namespace scorum;
@@ -35,6 +36,8 @@ struct reward_fund_integration_fixture : public database_trx_integration_fixture
     reward_fund_integration_fixture()
         : alice("alice")
         , bob("bob")
+        , account_service(db.account_service())
+        , dgp_service(db.dynamic_global_property_service())
     {
         // switch off registration pool to get 0 SP for both alice and bob acounts
         genesis_state_type genesis = Genesis::create()
@@ -54,79 +57,9 @@ struct reward_fund_integration_fixture : public database_trx_integration_fixture
 
     Actor alice;
     Actor bob;
-};
 
-struct reward_fund_decay_fixture : public reward_fund_integration_fixture
-{
-    reward_fund_decay_fixture()
-        : sam("sam")
-    {
-        actor(initdelegate).create_account(sam);
-        actor(initdelegate).give_sp(sam, account_initial_vest_supply.amount.value);
-
-        generate_block();
-    }
-
-    const std::string post_permlink = "alice-test";
-
-    fc::time_point_sec post()
-    {
-        comment_operation comment;
-
-        comment.author = alice.name;
-        comment.permlink = post_permlink;
-        comment.parent_permlink = "posts";
-        comment.title = "foo";
-        comment.body = "bar";
-
-        push_operation_only(comment, alice.private_key);
-
-        return db.obtain_service<dbs_comment>().get(alice.name, post_permlink).cashout_time;
-    }
-
-    const std::string comment_permlink = "bob-test";
-
-    fc::time_point_sec comment()
-    {
-        comment_operation comment;
-
-        comment.author = bob.name;
-        comment.permlink = comment_permlink;
-        comment.parent_author = alice.name;
-        comment.parent_permlink = post_permlink;
-        comment.title = "re: foo";
-        comment.body = "re: bar";
-
-        push_operation_only(comment, bob.private_key);
-
-        return db.obtain_service<dbs_comment>().get(bob.name, comment_permlink).cashout_time;
-    }
-
-    void vote_for_post()
-    {
-        vote_operation vote;
-
-        vote.voter = sam.name;
-        vote.author = alice.name;
-        vote.permlink = post_permlink;
-        vote.weight = (int16_t)100;
-
-        push_operation_only(vote, sam.private_key);
-    }
-
-    void vote_for_comment()
-    {
-        vote_operation vote;
-
-        vote.voter = sam.name;
-        vote.author = bob.name;
-        vote.permlink = comment_permlink;
-        vote.weight = (int16_t)100;
-
-        push_operation_only(vote, sam.private_key);
-    }
-
-    Actor sam;
+    account_service_i& account_service;
+    dynamic_global_property_service_i& dgp_service;
 };
 }
 
@@ -308,38 +241,147 @@ BOOST_FIXTURE_TEST_CASE(recent_claims_decay, database_fixture::reward_fund_integ
     FC_LOG_AND_RETHROW()
 }
 
-BOOST_FIXTURE_TEST_CASE(recent_claims_long_decay, database_fixture::reward_fund_decay_fixture)
+BOOST_AUTO_TEST_SUITE_END()
+
+namespace database_fixture {
+struct reward_fund_sequence_fixture : public reward_fund_integration_fixture
 {
-    int ci = 0;
-    while (ci++ < 4)
+    reward_fund_sequence_fixture()
+        : sam("sam")
+        , jon("jon")
     {
-        auto cashout_post = post();
+        actor(initdelegate).create_account(sam);
+        actor(initdelegate).give_sp(sam, account_initial_vest_supply.amount.value);
 
-        auto delta = (cashout_post - db.head_block_time()).to_seconds();
+        actor(initdelegate).create_account(jon);
+        actor(initdelegate).give_sp(jon, account_initial_vest_supply.amount.value);
 
-        dlog("${d}", ("d", delta));
+        generate_block();
+    }
 
-        generate_blocks(fc::time_point_sec(db.head_block_time().sec_since_epoch() + delta / 3), false);
+    std::string create_next_permlink()
+    {
+        static int next = 0;
+        std::stringstream store;
+        store << alice.name << "-" << ++next;
+        return store.str();
+    }
 
-        auto cashout_comment = comment();
+    std::string get_comment_permlink(const std::string& permlink)
+    {
+        return std::string("re-") + permlink;
+    }
+
+    fc::time_point_sec post(const std::string& permlink)
+    {
+        comment_operation comment;
+
+        comment.author = alice.name;
+        comment.permlink = permlink;
+        comment.parent_permlink = "posts";
+        comment.title = "foo";
+        comment.body = "bar";
+
+        push_operation_only(comment, alice.private_key);
+
+        return db.obtain_service<dbs_comment>().get(alice.name, permlink).cashout_time;
+    }
+
+    fc::time_point_sec comment(const std::string& permlink)
+    {
+        comment_operation comment;
+
+        comment.author = bob.name;
+        comment.permlink = get_comment_permlink(permlink);
+        comment.parent_author = alice.name;
+        comment.parent_permlink = permlink;
+        comment.title = "re: foo";
+        comment.body = "re: bar";
+
+        push_operation_only(comment, bob.private_key);
+
+        return db.obtain_service<dbs_comment>().get(bob.name, comment.permlink).cashout_time;
+    }
+
+    void vote_for_post(const std::string& permlink)
+    {
+        vote_operation vote;
+
+        vote.voter = sam.name;
+        vote.author = alice.name;
+        vote.permlink = permlink;
+        vote.weight = (int16_t)100;
+
+        push_operation_only(vote, sam.private_key);
+    }
+
+    void vote_for_comment(const std::string& permlink)
+    {
+        vote_operation vote;
+
+        vote.voter = sam.name;
+        vote.author = bob.name;
+        vote.permlink = get_comment_permlink(permlink);
+        vote.weight = (int16_t)100;
+
+        push_operation_only(vote, sam.private_key);
+    }
+
+    Actor sam;
+    Actor jon;
+};
+}
+
+BOOST_AUTO_TEST_SUITE(reward_fund_sequence_tests)
+
+BOOST_FIXTURE_TEST_CASE(recent_claims_long_decay, database_fixture::reward_fund_sequence_fixture)
+{
+    const int seq_n = 10;
+    int ci = 0;
+
+    generate_blocks(1000);
+
+    while (ci++ < seq_n)
+    {
+        const auto& alice_obj = account_service.get_account(alice.name);
+        wlog("${name}: ${scr}, ${sp}", ("name", alice_obj.name)("scr", alice_obj.balance)("sp", alice_obj.scorumpower));
+        const auto& bob_obj = account_service.get_account(bob.name);
+        wlog("${name}: ${scr}, ${sp}", ("name", bob_obj.name)("scr", bob_obj.balance)("sp", bob_obj.scorumpower));
+        const auto& sam_obj = account_service.get_account(sam.name);
+        wlog("${name}: ${scr}, ${sp}", ("name", sam_obj.name)("scr", sam_obj.balance)("sp", sam_obj.scorumpower));
+        const auto& jon_obj = account_service.get_account(jon.name);
+        wlog("${name}: ${scr}, ${sp}", ("name", jon_obj.name)("scr", jon_obj.balance)("sp", jon_obj.scorumpower));
+
+        auto post_permlink = create_next_permlink();
+
+        auto cashout_post = post(post_permlink);
+
+        auto delta = (cashout_post - dgp_service.head_block_time()).to_seconds();
+
+        wlog(">> ${t}", ("t", dgp_service.head_block_time()));
+
+        generate_blocks(fc::time_point_sec(dgp_service.head_block_time().sec_since_epoch() + delta / 3), false);
+
+        auto cashout_comment = comment(post_permlink);
 
         delta = (cashout_comment - cashout_post).to_seconds();
 
-        dlog("${d}", ("d", delta));
+        wlog(">> ${t}", ("t", dgp_service.head_block_time()));
 
-        generate_blocks(fc::time_point_sec(db.head_block_time().sec_since_epoch() + 2 * delta / 3), false);
+        generate_blocks(fc::time_point_sec(dgp_service.head_block_time().sec_since_epoch() + 2 * delta / 3), false);
 
-        vote_for_post();
-        vote_for_comment();
+        vote_for_post(post_permlink);
+        vote_for_comment(post_permlink);
 
-        // share_type alice_comment_net_rshares = db.obtain_service<dbs_comment>().get(alice.name,
-        // post_permlink).net_rshares;
-        // share_type bob_comment_net_rshares = db.obtain_service<dbs_comment>().get(bob.name,
-        // comment_permlink).net_rshares;
+        wlog(">> ${t}", ("t", dgp_service.head_block_time()));
 
-        generate_blocks(cashout_post);
+        generate_blocks(cashout_post, false);
 
-        generate_blocks(cashout_comment);
+        wlog(">> ${t}", ("t", dgp_service.head_block_time()));
+
+        generate_blocks(cashout_comment, false);
+
+        wlog(">> ${t}", ("t", dgp_service.head_block_time()));
     }
 }
 
