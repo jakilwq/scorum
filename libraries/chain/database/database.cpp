@@ -66,6 +66,7 @@
 #include <scorum/chain/evaluators/scorum_evaluators.hpp>
 #include <scorum/chain/evaluators/set_withdraw_scorumpower_route_evaluators.hpp>
 #include <scorum/chain/evaluators/withdraw_scorumpower_evaluator.hpp>
+#include <scorum/chain/evaluators/comment_evaluator.hpp>
 
 namespace scorum {
 namespace chain {
