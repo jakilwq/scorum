@@ -425,7 +425,11 @@ void comment_evaluator::do_apply(const comment_operation& o)
                     com.root_comment = pr_root_comment;
                 }
 
+#if 0
+                com.cashout_time = com.created + (DAYS_TO_SECONDS(7));
+#else
                 com.cashout_time = com.created + SCORUM_CASHOUT_WINDOW_SECONDS;
+#endif
 
 #ifndef IS_LOW_MEM
                 fc::from_string(com.title, o.title);
@@ -872,8 +876,13 @@ void vote_evaluator::do_apply(const vote_operation& o)
 
             if (rshares > 0)
             {
+#if 0
+                FC_ASSERT(dprops_service.head_block_time() < comment.cashout_time - (fc::hours(12)),
+                          "Cannot increase payout within last twelve hours before payout.");
+#else
                 FC_ASSERT(dprops_service.head_block_time() < comment.cashout_time - SCORUM_UPVOTE_LOCKOUT,
                           "Cannot increase payout within last twelve hours before payout.");
+#endif
             }
 
             account_service.update_voting_power(voter, current_power - used_power);
@@ -974,8 +983,13 @@ void vote_evaluator::do_apply(const vote_operation& o)
 
             if (comment_vote.rshares < rshares)
             {
+#if 0
+                FC_ASSERT(dprops_service.head_block_time() < comment.cashout_time - (fc::hours(12)),
+                          "Cannot increase payout within last twelve hours before payout.");
+#else
                 FC_ASSERT(dprops_service.head_block_time() < comment.cashout_time - SCORUM_UPVOTE_LOCKOUT,
                           "Cannot increase payout within last twelve hours before payout.");
+#endif
             }
 
             account_service.update_voting_power(voter, current_power - used_power);

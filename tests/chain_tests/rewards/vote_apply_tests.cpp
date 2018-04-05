@@ -211,11 +211,11 @@ SCORUM_TEST_CASE(success_vote_for_100_weight_check)
     // rshares = -------------- * used_power =
     //               S100
     //
-    //    scorumpower                            S100 * elapsed_seconds             weight            1
+    //     scorumpower                              S100 * elapsed_seconds             weight            1
     // = -------------- * (( old_voting_power + -------------------------------- ) * ------- + M - 1) * --- =@
     //        S100                               SCORUM_VOTE_REGENERATION_SECONDS      S100              M
     //
-    //    scorumpower                                 1
+    //      scorumpower                                  1
     // =@ -------------- * (old_voting_power + M - 1) * ---
     //         S100                                      M
     //
@@ -502,13 +502,13 @@ SCORUM_TEST_CASE(increasing_rshares_for_2_different_voters_check)
     // rshares = -------------- * used_power =
     //               S100
     //
-    //    scorumpower                            S100 * elapsed_seconds             weight            1
+    //    scorumpower                               S100 * elapsed_seconds             weight            1
     // = -------------- * (( old_voting_power + -------------------------------- ) * ------- + M - 1) * --- =@
     //        S100                               SCORUM_VOTE_REGENERATION_SECONDS      S100              M
     //
     // For weight = S25
     //
-    //    scorumpower                       S25              1
+    //      scorumpower                        S25              1
     // =@ -------------- * (old_voting_power * ---  + M - 1) * ---
     //         S100                           S100              M
     //
