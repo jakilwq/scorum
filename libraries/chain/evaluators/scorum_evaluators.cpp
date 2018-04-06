@@ -425,8 +425,8 @@ void comment_evaluator::do_apply(const comment_operation& o)
                     com.root_comment = pr_root_comment;
                 }
 
-#if 0
-                com.cashout_time = com.created + (DAYS_TO_SECONDS(7));
+#if 1
+                com.cashout_time = com.created + fc::minutes(2 * 60);
 #else
                 com.cashout_time = com.created + SCORUM_CASHOUT_WINDOW_SECONDS;
 #endif

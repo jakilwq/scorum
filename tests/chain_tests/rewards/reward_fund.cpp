@@ -279,6 +279,16 @@ struct reward_fund_sequence_fixture : public reward_fund_integration_fixture
         return store.str();
     }
 
+    Actor create_next_account()
+    {
+        static int next = 0;
+        std::stringstream store;
+        store << "stranger-" << ++next;
+        Actor ret(store.str());
+        actor(initdelegate).create_account(ret.name);
+        return ret;
+    }
+
     std::string get_comment_permlink(const std::string& permlink)
     {
         return std::string("re-") + permlink;
@@ -388,11 +398,28 @@ struct reward_fund_sequence_fixture : public reward_fund_integration_fixture
         const auto& account_obj = account_service.get_account(account.name);
         wlog("${name}: delta: ${d_scr}, ${d_sp}; total: ${scr}, ${sp}",
              ("name", account.name)("d_scr", account_obj.balance - recent_scr[account])(
-                 "d_sp", account_obj.scorumpower - recent_sp[account])("scr", account_obj.balance)(
-                 "sp", account_obj.scorumpower));
+                 "d_sp", account_obj.effective_scorumpower() - recent_sp[account])("scr", account_obj.balance)(
+                 "sp", account_obj.effective_scorumpower()));
 
         recent_scr[account] = account_obj.balance;
-        recent_sp[account] = account_obj.scorumpower;
+        recent_sp[account] = account_obj.effective_scorumpower();
+    }
+
+    void stat_account_funds_not_save_recent(const Actor& account,
+                                            recent_funds_type& recent_scr,
+                                            recent_funds_type& recent_sp)
+    {
+        if (recent_scr.find(account) == recent_scr.end())
+            recent_scr[account] = ASSET_SCR(0);
+
+        if (recent_sp.find(account) == recent_sp.end())
+            recent_sp[account] = ASSET_SP(0);
+
+        const auto& account_obj = account_service.get_account(account.name);
+        wlog("${name}: delta: ${d_scr}, ${d_sp}; total: ${scr}, ${sp}",
+             ("name", account.name)("d_scr", account_obj.balance - recent_scr[account])(
+                 "d_sp", account_obj.effective_scorumpower() - recent_sp[account])("scr", account_obj.balance)(
+                 "sp", account_obj.effective_scorumpower()));
     }
 
     void stat_comment(const comment_object& comment)
@@ -402,7 +429,8 @@ struct reward_fund_sequence_fixture : public reward_fund_integration_fixture
         auto comment_votes = comment_vote_service.get_by_comment_weight_voter(comment.id);
         for (const comment_vote_object& vote : comment_votes)
         {
-            wlog("total_vote_weight: ${t}, weight: ${w}", ("t", comment.total_vote_weight)("w", vote.weight));
+            wlog("${n}-${p}: total_vote_weight: ${t}, weight: ${w}",
+                 ("n", comment.author)("p", comment.permlink)("t", comment.total_vote_weight)("w", vote.weight));
         }
     }
 
@@ -411,6 +439,35 @@ struct reward_fund_sequence_fixture : public reward_fund_integration_fixture
         stat_reward_fund();
         generate_blocks(timeline, false);
         stat_reward_fund();
+    }
+
+    void drop_assets(const Actor& account, recent_funds_type& recent_scr, recent_funds_type& recent_sp)
+    {
+        const auto& account_obj = account_service.get_account(account.name);
+
+        Actor stranger = create_next_account();
+
+        if (recent_scr.find(account.name) != recent_scr.end())
+        {
+            transfer_operation op;
+            op.from = account.name;
+            op.to = stranger.name;
+            op.amount = account_obj.balance - recent_scr[account.name];
+
+            if (op.amount.amount > 0)
+                push_operation_only(op, account.private_key);
+        }
+
+        if (recent_sp.find(account.name) != recent_sp.end())
+        {
+            delegate_scorumpower_operation op;
+            op.delegator = account.name;
+            op.delegatee = stranger.name;
+            op.scorumpower = account_obj.effective_scorumpower() - recent_sp[account.name];
+
+            if (op.scorumpower.amount > 0)
+                push_operation_only(op, account.private_key);
+        }
     }
 
     Actor sam;
@@ -432,45 +489,69 @@ BOOST_FIXTURE_TEST_CASE(recent_claims_long_decay, database_fixture::reward_fund_
     int ci = 0;
 
     generate_blocks_to_next_timeline(
-        fc::time_point_sec(dgp_service.head_block_time().sec_since_epoch() + fc::hours(8).to_seconds()));
+        fc::time_point_sec(dgp_service.head_block_time().sec_since_epoch() + fc::hours(4).to_seconds()));
 
     take_initial_reward();
 
-    recent_funds_type recent_scr;
-    recent_funds_type recent_sp;
+    recent_funds_type recent_scr_initial;
+    recent_funds_type recent_sp_initial;
+
+    stat_account_funds(alice, recent_scr_initial, recent_sp_initial);
+    stat_account_funds(bob, recent_scr_initial, recent_sp_initial);
+    stat_account_funds(sam, recent_scr_initial, recent_sp_initial);
+    stat_account_funds(sam2, recent_scr_initial, recent_sp_initial);
 
     while (ci++ < seq_n)
     {
-        stat_account_funds(alice, recent_scr, recent_sp);
-        stat_account_funds(bob, recent_scr, recent_sp);
-        stat_account_funds(sam, recent_scr, recent_sp);
-        stat_account_funds(sam2, recent_scr, recent_sp);
+        drop_assets(alice, recent_scr_initial, recent_sp_initial);
+        drop_assets(bob, recent_scr_initial, recent_sp_initial);
+        drop_assets(sam, recent_scr_initial, recent_sp_initial);
+        drop_assets(sam2, recent_scr_initial, recent_sp_initial);
+
+        generate_block();
+
+        stat_account_funds_not_save_recent(alice, recent_scr_initial, recent_sp_initial);
+        stat_account_funds_not_save_recent(bob, recent_scr_initial, recent_sp_initial);
+        stat_account_funds_not_save_recent(sam, recent_scr_initial, recent_sp_initial);
+        stat_account_funds_not_save_recent(sam2, recent_scr_initial, recent_sp_initial);
 
         auto post_permlink = create_next_permlink();
 
         const comment_object& comment_post = post(post_permlink);
 
-        auto delta = (comment_post.cashout_time - dgp_service.head_block_time()).to_seconds();
+        auto start_t = dgp_service.head_block_time();
+        auto delta = (comment_post.cashout_time - start_t).to_seconds();
 
-        generate_blocks_to_next_timeline(
-            fc::time_point_sec(dgp_service.head_block_time().sec_since_epoch() + delta / 3));
+        generate_blocks_to_next_timeline(fc::time_point_sec(start_t.sec_since_epoch() + delta / 4));
 
         const comment_object& comment_comment = comment(post_permlink);
 
-        delta = (comment_comment.cashout_time - comment_post.cashout_time).to_seconds();
+        generate_blocks_to_next_timeline(fc::time_point_sec(start_t.sec_since_epoch() + delta / 2));
 
-        generate_blocks_to_next_timeline(
-            fc::time_point_sec(dgp_service.head_block_time().sec_since_epoch() + 2 * delta / 3));
+        start_t = dgp_service.head_block_time();
+        delta = (comment_post.cashout_time - start_t - SCORUM_UPVOTE_LOCKOUT).to_seconds();
+        do
+        {
+            vote_for_post(post_permlink);
+            vote_for_comment(post_permlink);
 
-        vote_for_post(post_permlink);
-        vote_for_comment(post_permlink);
+            generate_blocks_to_next_timeline(fc::time_point_sec(start_t.sec_since_epoch() + delta / 10));
 
-        stat_comment(db.obtain_service<dbs_comment>().get(alice.name, post_permlink));
+            start_t = dgp_service.head_block_time();
+
+        } while (start_t < fc::time_point_sec(start_t.sec_since_epoch() - SCORUM_UPVOTE_LOCKOUT))
+
+            stat_comment(db.obtain_service<dbs_comment>().get(alice.name, post_permlink));
         stat_comment(db.obtain_service<dbs_comment>().get(bob.name, get_comment_permlink(post_permlink)));
 
         generate_blocks_to_next_timeline(comment_post.cashout_time);
 
         generate_blocks_to_next_timeline(comment_comment.cashout_time);
+
+        stat_account_funds_not_save_recent(alice, recent_scr_initial, recent_sp_initial);
+        stat_account_funds_not_save_recent(bob, recent_scr_initial, recent_sp_initial);
+        stat_account_funds_not_save_recent(sam, recent_scr_initial, recent_sp_initial);
+        stat_account_funds_not_save_recent(sam2, recent_scr_initial, recent_sp_initial);
     }
 }
 
