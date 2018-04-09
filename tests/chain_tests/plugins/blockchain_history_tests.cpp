@@ -252,7 +252,7 @@ SCORUM_TEST_CASE(check_get_account_scr_to_scr_transfers)
     using input_operation_vector_type = std::vector<operation>;
     input_operation_vector_type input_ops;
 
-    const int over_limit = 10;
+    const uint over_limit = 10;
 
     // sam has not been feeded yet
 
@@ -342,7 +342,7 @@ SCORUM_TEST_CASE(check_get_account_scr_to_sp_transfers)
     using input_operation_vector_type = std::vector<operation>;
     input_operation_vector_type input_ops;
 
-    const int over_limit = 10;
+    const uint over_limit = 10;
 
     // sam has not been feeded yet
 
