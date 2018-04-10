@@ -320,7 +320,7 @@ struct reward_fund_sequence_fixture : public reward_fund_integration_fixture
         generate_blocks_to_next_timeline(cashout_time);
     }
 
-    comment_object post(const std::string& permlink)
+    const comment_object& post(const std::string& permlink)
     {
         comment_operation comment;
 
@@ -335,7 +335,24 @@ struct reward_fund_sequence_fixture : public reward_fund_integration_fixture
         return comment_service.get(alice.name, permlink);
     }
 
-    comment_object comment(const std::string& permlink)
+    const comment_object& any_post(const std::string& permlink)
+    {
+        comment_operation comment;
+
+        auto new_account = create_next_account();
+
+        comment.author = new_account;
+        comment.permlink = permlink;
+        comment.parent_permlink = "posts";
+        comment.title = "foo";
+        comment.body = "bar";
+
+        push_operation_only(comment, new_account.private_key);
+
+        return comment_service.get(new_account.name, permlink);
+    }
+
+    const comment_object& comment(const std::string& permlink)
     {
         comment_operation comment;
 
@@ -359,6 +376,18 @@ struct reward_fund_sequence_fixture : public reward_fund_integration_fixture
         vote.author = alice.name;
         vote.permlink = permlink;
         vote.weight = (int16_t)100;
+
+        push_operation_only(vote, sam.private_key);
+    }
+
+    void vote_for_any_post(const account_name_type& author, const std::string& permlink, int16_t weight)
+    {
+        vote_operation vote;
+
+        vote.voter = sam.name;
+        vote.author = author;
+        vote.permlink = permlink;
+        vote.weight = weight;
 
         push_operation_only(vote, sam.private_key);
     }
@@ -616,6 +645,32 @@ BOOST_FIXTURE_TEST_CASE(recent_claims_long_decay2, database_fixture::reward_fund
         stat_account_funds_not_save_recent(bob, recent_scr_initial, recent_sp_initial);
         stat_account_funds_not_save_recent(sam, recent_scr_initial, recent_sp_initial);
         stat_account_funds_not_save_recent(sam2, recent_scr_initial, recent_sp_initial);
+    }
+}
+
+BOOST_FIXTURE_TEST_CASE(recent_claims_long_decay3, database_fixture::reward_fund_sequence_fixture)
+{
+    const int minuts = 1;
+    const int seq_n = 60;
+    int ci = 0;
+
+    while (ci++ < seq_n)
+    {
+        auto post_permlink = create_next_permlink();
+        const comment_object& comment = any_post(post_permlink);
+        auto author = comment.author;
+        auto comment_id = comment.id;
+        auto start_t = dgp_service.head_block_time();
+        generate_blocks(fc::time_point_sec(start_t.sec_since_epoch() + 60 * minuts));
+
+        vote_for_any_post(author, post_permlink, 100);
+
+        auto voter_id = account_service.get_account(sam.name).id;
+        const comment_vote_object& comment_vote = comment_vote_service.get(comment_id, voter_id);
+
+        wlog("${tm}: ${auth}-${perlink} rs: ${rs}, voted: ${w}",
+             ("tm", dgp_service.head_block_time())("auth", author)("perlink", post_permlink)(
+                 "rs", comment_vote.rshares)("w", comment_vote.weight));
     }
 }
 

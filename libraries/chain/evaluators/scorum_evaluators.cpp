@@ -947,10 +947,11 @@ void vote_evaluator::do_apply(const vote_operation& o)
 
                     max_vote_weight = cv.weight;
 
+                    int64_t elapsed = (cv.last_update - comment.created).to_seconds();
+
                     /// discount weight by time
                     uint128_t w(max_vote_weight);
-                    uint64_t delta_t = std::min(uint64_t((cv.last_update - comment.created).to_seconds()),
-                                                uint64_t(SCORUM_REVERSE_AUCTION_WINDOW_SECONDS));
+                    uint64_t delta_t = std::min(uint64_t(elapsed), uint64_t(SCORUM_REVERSE_AUCTION_WINDOW_SECONDS));
 
                     w *= delta_t;
                     w /= SCORUM_REVERSE_AUCTION_WINDOW_SECONDS;
