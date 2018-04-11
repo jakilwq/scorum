@@ -286,6 +286,7 @@ struct reward_fund_sequence_fixture : public reward_fund_integration_fixture
         store << "stranger-" << ++next;
         Actor ret(store.str());
         actor(initdelegate).create_account(ret.name);
+        actor(initdelegate).give_sp(ret, account_initial_vest_supply.amount.value / 10);
         return ret;
     }
 
@@ -390,6 +391,24 @@ struct reward_fund_sequence_fixture : public reward_fund_integration_fixture
         vote.weight = weight;
 
         push_operation_only(vote, sam.private_key);
+    }
+
+    const comment_vote_object& vote_by_any_voter(const std::string& permlink)
+    {
+        vote_operation vote;
+
+        auto new_voter = create_next_account();
+
+        vote.voter = new_voter.name;
+        vote.author = alice.name;
+        vote.permlink = permlink;
+        vote.weight = (int16_t)100;
+
+        push_operation_only(vote, new_voter.private_key);
+
+        const comment_object& comm = comment_service.get(alice.name, permlink);
+        const account_object& voter = account_service.get_account(new_voter.name);
+        return comment_vote_service.get(comm.id, voter.id);
     }
 
     void vote_for_comment(const std::string& permlink)
@@ -584,93 +603,117 @@ BOOST_AUTO_TEST_SUITE(reward_fund_sequence_tests)
 //    }
 //}
 
-BOOST_FIXTURE_TEST_CASE(recent_claims_long_decay2, database_fixture::reward_fund_sequence_fixture)
-{
-    const int seq_n = 20;
-    int ci = 0;
+// BOOST_FIXTURE_TEST_CASE(recent_claims_long_decay2, database_fixture::reward_fund_sequence_fixture)
+//{
+//    const int seq_n = 20;
+//    int ci = 0;
 
-    generate_blocks_to_next_timeline(
-        fc::time_point_sec(dgp_service.head_block_time().sec_since_epoch() + fc::hours(4).to_seconds()));
+//    generate_blocks_to_next_timeline(
+//        fc::time_point_sec(dgp_service.head_block_time().sec_since_epoch() + fc::hours(4).to_seconds()));
 
-    take_initial_reward();
+//    take_initial_reward();
 
-    recent_funds_type recent_scr_initial;
-    recent_funds_type recent_sp_initial;
+//    recent_funds_type recent_scr_initial;
+//    recent_funds_type recent_sp_initial;
 
-    stat_account_funds(alice, recent_scr_initial, recent_sp_initial);
-    stat_account_funds(bob, recent_scr_initial, recent_sp_initial);
-    stat_account_funds(sam, recent_scr_initial, recent_sp_initial);
-    stat_account_funds(sam2, recent_scr_initial, recent_sp_initial);
+//    stat_account_funds(alice, recent_scr_initial, recent_sp_initial);
+//    stat_account_funds(bob, recent_scr_initial, recent_sp_initial);
+//    stat_account_funds(sam, recent_scr_initial, recent_sp_initial);
+//    stat_account_funds(sam2, recent_scr_initial, recent_sp_initial);
 
-    while (ci++ < seq_n)
-    {
-        drop_assets(alice, recent_scr_initial, recent_sp_initial);
-        drop_assets(bob, recent_scr_initial, recent_sp_initial);
-        drop_assets(sam, recent_scr_initial, recent_sp_initial);
-        drop_assets(sam2, recent_scr_initial, recent_sp_initial);
+//    while (ci++ < seq_n)
+//    {
+//        drop_assets(alice, recent_scr_initial, recent_sp_initial);
+//        drop_assets(bob, recent_scr_initial, recent_sp_initial);
+//        drop_assets(sam, recent_scr_initial, recent_sp_initial);
+//        drop_assets(sam2, recent_scr_initial, recent_sp_initial);
 
-        generate_block();
+//        generate_block();
 
-        stat_account_funds_not_save_recent(alice, recent_scr_initial, recent_sp_initial);
-        stat_account_funds_not_save_recent(bob, recent_scr_initial, recent_sp_initial);
-        stat_account_funds_not_save_recent(sam, recent_scr_initial, recent_sp_initial);
-        stat_account_funds_not_save_recent(sam2, recent_scr_initial, recent_sp_initial);
+//        stat_account_funds_not_save_recent(alice, recent_scr_initial, recent_sp_initial);
+//        stat_account_funds_not_save_recent(bob, recent_scr_initial, recent_sp_initial);
+//        stat_account_funds_not_save_recent(sam, recent_scr_initial, recent_sp_initial);
+//        stat_account_funds_not_save_recent(sam2, recent_scr_initial, recent_sp_initial);
 
-        auto post_permlink = create_next_permlink();
+//        auto post_permlink = create_next_permlink();
 
-        const comment_object& comment_post = post(post_permlink);
+//        const comment_object& comment_post = post(post_permlink);
 
-        auto start_t = dgp_service.head_block_time();
-        auto delta = (comment_post.cashout_time - start_t).to_seconds();
+//        auto start_t = dgp_service.head_block_time();
+//        auto delta = (comment_post.cashout_time - start_t).to_seconds();
 
-        generate_blocks_to_next_timeline(fc::time_point_sec(start_t.sec_since_epoch() + delta / 2));
+//        generate_blocks_to_next_timeline(fc::time_point_sec(start_t.sec_since_epoch() + delta / 2));
 
-        const comment_object& comment_comment = comment(post_permlink);
+//        const comment_object& comment_comment = comment(post_permlink);
 
-        generate_blocks_to_next_timeline(fc::time_point_sec(start_t.sec_since_epoch() + 3 * delta / 4));
+//        generate_blocks_to_next_timeline(fc::time_point_sec(start_t.sec_since_epoch() + 3 * delta / 4));
 
-        vote_for_post(post_permlink);
-        vote_for_comment(post_permlink);
+//        vote_for_post(post_permlink);
+//        vote_for_comment(post_permlink);
 
-        stat_comment(db.obtain_service<dbs_comment>().get(alice.name, post_permlink));
-        stat_comment(db.obtain_service<dbs_comment>().get(bob.name, get_comment_permlink(post_permlink)));
+//        stat_comment(db.obtain_service<dbs_comment>().get(alice.name, post_permlink));
+//        stat_comment(db.obtain_service<dbs_comment>().get(bob.name, get_comment_permlink(post_permlink)));
 
-        generate_blocks_to_next_timeline(comment_post.cashout_time);
-        if (comment_post.cashout_time != comment_comment.cashout_time)
-        {
-            generate_blocks_to_next_timeline(comment_comment.cashout_time);
-        }
+//        generate_blocks_to_next_timeline(comment_post.cashout_time);
+//        if (comment_post.cashout_time != comment_comment.cashout_time)
+//        {
+//            generate_blocks_to_next_timeline(comment_comment.cashout_time);
+//        }
 
-        stat_account_funds_not_save_recent(alice, recent_scr_initial, recent_sp_initial);
-        stat_account_funds_not_save_recent(bob, recent_scr_initial, recent_sp_initial);
-        stat_account_funds_not_save_recent(sam, recent_scr_initial, recent_sp_initial);
-        stat_account_funds_not_save_recent(sam2, recent_scr_initial, recent_sp_initial);
-    }
-}
+//        stat_account_funds_not_save_recent(alice, recent_scr_initial, recent_sp_initial);
+//        stat_account_funds_not_save_recent(bob, recent_scr_initial, recent_sp_initial);
+//        stat_account_funds_not_save_recent(sam, recent_scr_initial, recent_sp_initial);
+//        stat_account_funds_not_save_recent(sam2, recent_scr_initial, recent_sp_initial);
+//    }
+//}
 
-BOOST_FIXTURE_TEST_CASE(recent_claims_long_decay3, database_fixture::reward_fund_sequence_fixture)
+// BOOST_FIXTURE_TEST_CASE(recent_claims_long_decay3, database_fixture::reward_fund_sequence_fixture)
+//{
+//    const int minuts = 1;
+//    const int seq_n = 50;
+//    int ci = 0;
+
+//    while (ci++ < seq_n)
+//    {
+//        auto post_permlink = create_next_permlink();
+//        const comment_object& comment = any_post(post_permlink);
+//        auto author = comment.author;
+//        auto comment_id = comment.id;
+//        auto start_t = dgp_service.head_block_time();
+//        generate_blocks(fc::time_point_sec(start_t.sec_since_epoch() + 60 * minuts));
+
+//        vote_for_any_post(author, post_permlink, 100);
+
+//        auto voter_id = account_service.get_account(sam.name).id;
+//        const comment_vote_object& comment_vote = comment_vote_service.get(comment_id, voter_id);
+
+//        wlog("${tm}: ${auth}-${perlink} rs: ${rs}, voted: ${w}",
+//             ("tm", dgp_service.head_block_time())("auth", author)("perlink", post_permlink)(
+//                 "rs", comment_vote.rshares)("w", comment_vote.weight));
+//    }
+//}
+
+BOOST_FIXTURE_TEST_CASE(recent_claims_long_decay4, database_fixture::reward_fund_sequence_fixture)
 {
     const int minuts = 1;
-    const int seq_n = 60;
+    const int seq_n = 50;
     int ci = 0;
+
+    auto post_permlink = create_next_permlink();
+    const comment_object& comment = post(post_permlink);
+    auto author = comment.author;
 
     while (ci++ < seq_n)
     {
-        auto post_permlink = create_next_permlink();
-        const comment_object& comment = any_post(post_permlink);
-        auto author = comment.author;
-        auto comment_id = comment.id;
         auto start_t = dgp_service.head_block_time();
         generate_blocks(fc::time_point_sec(start_t.sec_since_epoch() + 60 * minuts));
 
-        vote_for_any_post(author, post_permlink, 100);
+        const comment_vote_object& comment_vote = vote_by_any_voter(post_permlink);
+        const comment_object& saved_comment = comment_service.get(author, post_permlink);
 
-        auto voter_id = account_service.get_account(sam.name).id;
-        const comment_vote_object& comment_vote = comment_vote_service.get(comment_id, voter_id);
-
-        wlog("${tm}: ${auth}-${perlink} rs: ${rs}, voted: ${w}",
+        wlog("${tm}: ${auth}-${perlink} nrs: ${nrs}, total w: ${tw}, w: ${w}",
              ("tm", dgp_service.head_block_time())("auth", author)("perlink", post_permlink)(
-                 "rs", comment_vote.rshares)("w", comment_vote.weight));
+                 "nrs", saved_comment.net_rshares)("tw", saved_comment.total_vote_weight)("w", comment_vote.weight));
     }
 }
 
