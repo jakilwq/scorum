@@ -1272,6 +1272,66 @@ discussion database_api::get_discussion(comment_id_type id, uint32_t truncate_bo
     return d;
 }
 
+std::vector<discussion> database_api::get_comments_by_hot(const discussion_query& query) const
+{
+    std::vector<discussion> result;
+    return result;
+}
+
+std::vector<discussion> database_api::get_comments_by_trending(const discussion_query& query) const
+{
+    using discussions = std::vector<discussion>;
+
+    auto create_comments_query = [](discussions::iterator it, const discussion_query& query) {
+        discussion_query comments_query;
+        comments_query.parent_author = it->author;
+        comments_query.parent_permlink = it->permlink;
+        comments_query.limit = query.limit;
+        comments_query.truncate_body = query.truncate_body;
+        comments_query.select_tags = query.select_tags;
+        comments_query.select_authors = query.select_authors;
+        comments_query.filter_tags = query.filter_tags;
+
+        return comments_query;
+    };
+
+    discussions result;
+
+    my->_db.with_read_lock([&]() {
+        query.validate();
+        auto tag = fc::to_lower(query.tag);
+        auto parent = get_parent(query);
+
+        const auto& tidx = my->_db.get_index<tags::tag_index>().indices().get<tags::by_parent_trending>();
+        auto tidx_itr = tidx.lower_bound(boost::make_tuple(tag, parent, std::numeric_limits<double>::max()));
+
+        auto top = get_discussions(query, tag, parent, tidx, tidx_itr, query.truncate_body,
+                                   [](const comment_api_obj& c) { return c.net_rshares <= 0; });
+
+        for (auto it = top.begin(); it != top.end(); ++it)
+        {
+            result.push_back(*it);
+
+            if (it->children > 0)
+            {
+                discussion_query comments_query = create_comments_query(it, query);
+
+                auto parent = get_parent(it->author, it->permlink);
+                auto tidx_itr = tidx.lower_bound(boost::make_tuple(tag, parent, std::numeric_limits<double>::max()));
+
+                auto childrens = get_discussions(comments_query, tag, parent, tidx, tidx_itr, query.truncate_body,
+                                                 [](const comment_api_obj& c) { return c.net_rshares <= 0; });
+
+                FC_ASSERT(childrens.size() != 0, "");
+
+                result.push_back(*childrens.begin());
+            }
+        }
+    });
+
+    return result;
+}
+
 template <typename Index, typename StartItr>
 std::vector<discussion> database_api::get_discussions(const discussion_query& query,
                                                       const std::string& tag,
@@ -1350,16 +1410,25 @@ std::vector<discussion> database_api::get_discussions(const discussion_query& qu
     return result;
 }
 
+comment_id_type database_api::get_parent(const std::string& parent_author, const std::string& parent_permlink) const
+{
+    // clang-format off
+    return my->_db.with_read_lock([&]() {
+        return my->_db.obtain_service<dbs_comment>().get(parent_author, parent_permlink).id;
+    });
+    // clang-format on
+}
+
 comment_id_type database_api::get_parent(const discussion_query& query) const
 {
-    return my->_db.with_read_lock([&]() {
-        comment_id_type parent;
-        if (query.parent_author && query.parent_permlink)
-        {
-            parent = my->_db.obtain_service<dbs_comment>().get(*query.parent_author, *query.parent_permlink).id;
-        }
-        return parent;
-    });
+    comment_id_type parent;
+
+    if (query.parent_author && query.parent_permlink)
+    {
+        parent = get_parent(*query.parent_author, *query.parent_permlink);
+    }
+
+    return parent;
 }
 
 std::vector<discussion> database_api::get_discussions_by_payout(const discussion_query& query) const

@@ -360,6 +360,21 @@ public:
     std::vector<discussion> get_discussions_by_comments(const discussion_query& query) const;
     std::vector<discussion> get_discussions_by_promoted(const discussion_query& query) const;
 
+    struct comments_query
+    {
+        std::string parent_author;
+        std::string parent_permlink;
+
+        std::string start_author;
+        std::string start_permlink;
+
+        uint16_t limit = 0;
+        uint16_t depth = 0;
+    };
+
+    std::vector<discussion> get_comments_by_hot(const discussion_query& query) const;
+    std::vector<discussion> get_comments_by_trending(const discussion_query& query) const;
+
     ///@}
 
     /**
@@ -437,7 +452,9 @@ private:
                     const std::function<bool(const comment_api_obj&)>& exit = &database_api::exit_default,
                     const std::function<bool(const tags::tag_object&)>& tag_exit = &database_api::tag_exit_default,
                     bool ignore_parent = false) const;
+
     comment_id_type get_parent(const discussion_query& q) const;
+    comment_id_type get_parent(const std::string& author, const std::string& permlink) const;
 
     void recursively_fetch_content(state& _state, discussion& root, std::set<std::string>& referenced_accounts) const;
 
