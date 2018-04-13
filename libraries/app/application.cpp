@@ -443,7 +443,7 @@ public:
                 wild_access.password_salt_b64 = "*";
                 wild_access.allowed_apis.push_back("database_api");
                 wild_access.allowed_apis.push_back("network_broadcast_api");
-                wild_access.allowed_apis.push_back("tag_api");
+                wild_access.allowed_apis.push_back("tags_api");
                 wild_access.allowed_apis.push_back("account_history_api");
                 wild_access.allowed_apis.push_back("blockchain_history_api");
                 wild_access.allowed_apis.push_back("account_stats_api");
