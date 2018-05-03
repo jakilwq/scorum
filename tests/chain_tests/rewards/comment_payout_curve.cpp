@@ -151,16 +151,21 @@ struct comment_payout_sp_curve_fixture : public blogging_common_fixture
 
 struct payout_info
 {
-    payout_info(const share_type& reward_fund_, const fc::uint128_t& total_claims_, const share_type& payout_)
+    payout_info(const share_type& reward_fund_,
+                const fc::uint128_t& total_claims_,
+                const share_type& payout_,
+                const fc::time_point_sec& payout_time_)
         : reward_fund(reward_fund_)
         , total_claims(total_claims_)
         , payout(payout_)
+        , payout_time(payout_time_)
     {
     }
 
     share_type reward_fund;
     fc::uint128_t total_claims = 0u;
     share_type payout;
+    fc::time_point_sec payout_time;
 };
 }
 
@@ -180,47 +185,44 @@ BOOST_FIXTURE_TEST_SUITE(comment_payout_sp_curve_tests, comment_payout_sp_curve_
 BOOST_AUTO_TEST_CASE(comment_payout_sp_curve)
 {
     using author_rewards_type = std::vector<payout_info>;
-    const int max_iterations = 150;
-    const int rewards_per_block = 10;
+    const int max_iterations = fc::days(7).to_seconds() / SCORUM_BLOCK_INTERVAL;
+    const int rewards_per_block = fc::minutes(10).to_seconds() / SCORUM_BLOCK_INTERVAL;
 
     author_rewards_type rewards;
-    rewards.reserve(max_iterations + 1);
+    rewards.reserve(max_iterations);
 
-    auto alice_balance = account_service.get_account(alice.name).scorumpower;
+    fc::uint128_t total_claims = reward_fund_sp_service.get().recent_claims;
 
     share_type rshares = calculate_rshares_for_post(alice);
 
     BOOST_REQUIRE_GT(rshares, share_type());
 
-    auto author_reward = account_service.get_account(alice.name).scorumpower - alice_balance;
-
-    BOOST_REQUIRE_GT(author_reward, ASSET_NULL_SP);
-
-    share_type reward_fund = reward_fund_sp_service.get().activity_reward_balance.amount;
-
-    auto total_claims = reward_fund_sp_service.get().recent_claims;
-
-    rewards.emplace_back(reward_fund, total_claims, author_reward.amount);
-
+    share_type reward_fund = 0;
     fc::time_point_sec last_payout = db.head_block_time();
-    fc::time_point_sec now = last_payout;
+    fc::time_point_sec now = last_payout + SCORUM_BLOCK_INTERVAL;
 
-    now += fc::days(7).to_seconds();
-    reward_fund += reward_sp_perblock.amount * fc::days(7).to_seconds() / SCORUM_BLOCK_INTERVAL;
+    total_claims = fc::uint128_t(reward_sp_perblock.amount.value * fc::days(70).to_seconds() / SCORUM_BLOCK_INTERVAL);
+
+    for (int ci = 0; ci < fc::days(7).to_seconds() / SCORUM_BLOCK_INTERVAL; ++ci)
+    {
+        each_block_itertion(reward_sp_perblock.amount, reward_fund, total_claims, now, last_payout);
+    }
 
     for (int ci = 0; ci < max_iterations; ++ci)
     {
         each_block_itertion(reward_sp_perblock.amount, reward_fund, total_claims, now, last_payout);
         if (ci % rewards_per_block == 0)
         {
-            rewards.emplace_back(reward_fund, total_claims, reward_itertion(rshares, reward_fund, total_claims));
+            rewards.emplace_back(reward_fund, total_claims, reward_itertion(rshares, reward_fund, total_claims),
+                                 last_payout);
         }
     }
 
     for (const payout_info& info : rewards)
     {
-        wlog("total_claims = ${t}\treward_fund = ${r}\tpayout = ${p}",
-             ("t", info.total_claims)("r", info.reward_fund.value / 1e+9)("p", info.payout.value / 1e+9));
+        wlog("${T}: total_claims = ${t}\treward_fund = ${r}\tpayout = ${p}",
+             ("T", info.payout_time)("t", info.total_claims)("r", info.reward_fund.value / 1e+9)(
+                 "p", info.payout.value / 1e+9));
     }
 }
 
