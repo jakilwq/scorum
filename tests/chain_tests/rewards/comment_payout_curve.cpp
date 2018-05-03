@@ -185,7 +185,7 @@ BOOST_FIXTURE_TEST_SUITE(comment_payout_sp_curve_tests, comment_payout_sp_curve_
 BOOST_AUTO_TEST_CASE(comment_payout_sp_curve)
 {
     using author_rewards_type = std::vector<payout_info>;
-    const int max_iterations = fc::days(7).to_seconds() / SCORUM_BLOCK_INTERVAL;
+    const int max_iterations = fc::days(365).to_seconds() / SCORUM_BLOCK_INTERVAL;
     const int rewards_per_block = fc::minutes(10).to_seconds() / SCORUM_BLOCK_INTERVAL;
 
     author_rewards_type rewards;
@@ -208,13 +208,20 @@ BOOST_AUTO_TEST_CASE(comment_payout_sp_curve)
         each_block_itertion(reward_sp_perblock.amount, reward_fund, total_claims, now, last_payout);
     }
 
+    share_type prev_payout;
     for (int ci = 0; ci < max_iterations; ++ci)
     {
         each_block_itertion(reward_sp_perblock.amount, reward_fund, total_claims, now, last_payout);
         if (ci % rewards_per_block == 0)
         {
-            rewards.emplace_back(reward_fund, total_claims, reward_itertion(rshares, reward_fund, total_claims),
-                                 last_payout);
+            auto payout = reward_itertion(rshares, reward_fund, total_claims);
+            if (payout == prev_payout)
+            {
+                wlog("${T}: total_claims = ${t}\treward_fund = ${r}\tpayout = ${p}",
+                     ("T", last_payout)("t", total_claims)("r", reward_fund.value / 1e+9)("p", payout.value / 1e+9));
+            }
+            rewards.emplace_back(reward_fund, total_claims, payout, last_payout);
+            prev_payout = payout;
         }
     }
 
