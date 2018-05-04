@@ -12,7 +12,7 @@
 
 #include <scorum/rewards_math/formulas.hpp>
 
-#define PRINT_CURVE_POINTS
+//#define PRINT_CURVE_POINTS
 
 using namespace scorum::chain;
 using namespace scorum::rewards_math;
