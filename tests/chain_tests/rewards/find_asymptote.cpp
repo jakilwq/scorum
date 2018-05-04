@@ -12,7 +12,7 @@
 
 #include <scorum/rewards_math/formulas.hpp>
 
-//#define PRINT_CURVE_POINTS
+#define PRINT_CURVE_POINTS
 
 using namespace scorum::chain;
 using namespace scorum::rewards_math;
@@ -230,51 +230,51 @@ using namespace database_fixture;
 
 BOOST_FIXTURE_TEST_SUITE(find_asymptote_tests, find_asymptote_fixture)
 
-BOOST_AUTO_TEST_CASE(find_asymptote_in_voting_power_decreasing)
-{
-    const int vote_period = fc::minutes(60).to_seconds();
-    const int max_iterations = fc::days(7).to_seconds() / vote_period;
+// BOOST_AUTO_TEST_CASE(find_asymptote_in_voting_power_decreasing)
+//{
+//    const int vote_period = fc::minutes(60).to_seconds();
+//    const int max_iterations = fc::days(7).to_seconds() / vote_period;
 
-#ifdef PRINT_CURVE_POINTS
-    using voting_powers_type = std::vector<voting_power_info>;
-    voting_powers_type vps;
-    vps.reserve(max_iterations);
-#endif
+//#ifdef PRINT_CURVE_POINTS
+//    using voting_powers_type = std::vector<voting_power_info>;
+//    voting_powers_type vps;
+//    vps.reserve(max_iterations);
+//#endif
 
-    percent_type voting_power = SCORUM_100_PERCENT;
-    fc::time_point_sec now = db.head_block_time();
-    fc::time_point_sec last_vote_time = now - SCORUM_BLOCK_INTERVAL * 1000;
+//    percent_type voting_power = SCORUM_100_PERCENT;
+//    fc::time_point_sec now = db.head_block_time();
+//    fc::time_point_sec last_vote_time = now - SCORUM_BLOCK_INTERVAL * 1000;
 
-    percent_type prev_voting_power = 0;
-    int equal_times = 0;
-    int ci = 0;
-    for (; ci < max_iterations; ++ci)
-    {
-        get_voting_point(voting_power, now, last_vote_time, vote_period);
-        if (find_asymptote([=]() { return prev_voting_power == voting_power; }, equal_times))
-            break;
-#ifdef PRINT_CURVE_POINTS
-        vps.emplace_back(voting_power, last_vote_time, ci);
-#endif
-        prev_voting_power = voting_power;
-    }
+//    percent_type prev_voting_power = 0;
+//    int equal_times = 0;
+//    int ci = 0;
+//    for (; ci < max_iterations; ++ci)
+//    {
+//        get_voting_point(voting_power, now, last_vote_time, vote_period);
+//        if (find_asymptote([=]() { return prev_voting_power == voting_power; }, equal_times))
+//            break;
+//#ifdef PRINT_CURVE_POINTS
+//        vps.emplace_back(voting_power, last_vote_time, ci);
+//#endif
+//        prev_voting_power = voting_power;
+//    }
 
-#ifdef PRINT_CURVE_POINTS
-    for (const voting_power_info& info : vps)
-    {
-        wlog(">> ${c} - ${T}: voting_power = ${v}", ("c", info.sequence)("T", info.time)("v", info.voting_power));
-    }
-#endif
+//#ifdef PRINT_CURVE_POINTS
+//    for (const voting_power_info& info : vps)
+//    {
+//        wlog(">> ${c} - ${T}: voting_power = ${v}", ("c", info.sequence)("T", info.time)("v", info.voting_power));
+//    }
+//#endif
 
-    BOOST_REQUIRE_LT(ci, max_iterations);
-}
+//    BOOST_REQUIRE_LT(ci, max_iterations);
+//}
 
 BOOST_AUTO_TEST_CASE(find_asymptote_in_payout_alg)
 {
     // 1.5 year
     const int max_iterations = fc::days(365 * 3 / 2).to_seconds() / SCORUM_BLOCK_INTERVAL;
     // cashout each 30 minutes
-    const int comment_cashout_period = fc::minutes(30).to_seconds() / SCORUM_BLOCK_INTERVAL;
+    const int comment_cashout_period = fc::minutes(10).to_seconds() / SCORUM_BLOCK_INTERVAL;
 
 #ifdef PRINT_CURVE_POINTS
     using author_rewards_type = std::vector<payout_info>;
