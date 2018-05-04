@@ -12,6 +12,8 @@
 
 #include <scorum/rewards_math/formulas.hpp>
 
+#define PRINT_CURVE_POINTS
+
 using namespace scorum::chain;
 using namespace scorum::rewards_math;
 using namespace scorum::protocol;
@@ -20,9 +22,9 @@ using scorum::protocol::curve_id;
 using fc::uint128_t;
 
 namespace database_fixture {
-struct comment_payout_sp_curve_fixture : public blogging_common_fixture
+struct find_asymptote_fixture : public blogging_common_fixture
 {
-    comment_payout_sp_curve_fixture()
+    find_asymptote_fixture()
         : budget_service(db.budget_service())
         , reward_fund_sp_service(db.reward_fund_sp_service())
         , alice("alice")
@@ -71,7 +73,7 @@ struct comment_payout_sp_curve_fixture : public blogging_common_fixture
         BOOST_REQUIRE_GT(reward_sp_perblock, ASSET_NULL_SP);
     }
 
-    ~comment_payout_sp_curve_fixture()
+    ~find_asymptote_fixture()
     {
         scorum::protocol::detail::override_config(
             boost::make_unique<scorum::protocol::detail::config>(scorum::protocol::detail::config::test));
@@ -90,27 +92,45 @@ struct comment_payout_sp_curve_fixture : public blogging_common_fixture
 
         vote(author, post_permlink, sam); // sam upvote alice post
 
-        generate_blocks(db.head_block_time() + SCORUM_BLOCK_INTERVAL);
+        generate_block();
 
         vote(author, post_permlink, simon); // simon upvote alice post
+
+        generate_block();
+
+        vote(author, post_permlink, bob); // bob upvote alice post
 
         share_type net_rshares = comment_service.get(post_id).net_rshares;
 
         fc::time_point_sec cashout = db.head_block_time();
         cashout += SCORUM_CASHOUT_WINDOW_SECONDS;
         cashout -= vote_interval;
-        cashout -= SCORUM_BLOCK_INTERVAL;
+        cashout -= SCORUM_BLOCK_INTERVAL * 2;
 
         generate_blocks(cashout);
 
         return net_rshares;
     }
 
-    void each_block_itertion(const share_type& reward_perblock,
-                             share_type& reward_fund,
-                             fc::uint128_t& total_claims,
-                             fc::time_point_sec& now,
-                             fc::time_point_sec& last_update)
+    void
+    get_voting_point(percent_type& voting_power, fc::time_point_sec& now, fc::time_point_sec& last_vote, int sec_delta)
+    {
+        percent_type current_power
+            = calculate_restoring_power(voting_power, now, last_vote, SCORUM_VOTE_REGENERATION_SECONDS);
+        percent_type used_power
+            = calculate_used_power(voting_power, SCORUM_PERCENT(100), SCORUM_VOTING_POWER_DECAY_PERCENT);
+
+        voting_power = current_power - used_power;
+
+        last_vote = now;
+        now += sec_delta;
+    }
+
+    void process_per_block_without_cashout_comments(const share_type& reward_perblock,
+                                                    share_type& reward_fund,
+                                                    fc::uint128_t& total_claims,
+                                                    fc::time_point_sec& now,
+                                                    fc::time_point_sec& last_update)
     {
         total_claims
             = calculate_decreasing_total_claims(total_claims, now, last_update, SCORUM_RECENT_RSHARES_DECAY_RATE);
@@ -121,7 +141,9 @@ struct comment_payout_sp_curve_fixture : public blogging_common_fixture
         reward_fund += reward_perblock;
     }
 
-    share_type reward_itertion(const share_type& rshares, share_type& reward_fund, fc::uint128_t& total_claims)
+    share_type process_per_block_for_cashout_comments(const share_type& rshares,
+                                                      share_type& reward_fund,
+                                                      fc::uint128_t& total_claims)
     {
         share_type payout;
         shares_vector_type total_rshares;
@@ -138,6 +160,22 @@ struct comment_payout_sp_curve_fixture : public blogging_common_fixture
         return payout;
     }
 
+    template <typename UntilLmb>
+    bool find_asymptote(UntilLmb&& fn, int& equal_times, const int asymptote_detection_times = 3)
+    {
+        if (fn())
+        {
+            ++equal_times;
+            if (equal_times > asymptote_detection_times)
+                return true;
+        }
+        else if (equal_times > 0)
+        {
+            --equal_times;
+        }
+        return false;
+    }
+
     budget_service_i& budget_service;
     reward_fund_sp_service_i& reward_fund_sp_service;
 
@@ -149,16 +187,33 @@ struct comment_payout_sp_curve_fixture : public blogging_common_fixture
     asset reward_sp_perblock = ASSET_NULL_SP;
 };
 
+#ifdef PRINT_CURVE_POINTS
+struct voting_power_info
+{
+    voting_power_info(const percent_type& voting_power_, const fc::time_point_sec& time_, uint32_t sequence_)
+        : voting_power(voting_power_)
+        , time(time_)
+        , sequence(sequence_)
+    {
+    }
+
+    percent_type voting_power = 0u;
+    fc::time_point_sec time;
+    uint32_t sequence = 0;
+};
+
 struct payout_info
 {
     payout_info(const share_type& reward_fund_,
                 const fc::uint128_t& total_claims_,
                 const share_type& payout_,
-                const fc::time_point_sec& payout_time_)
+                const fc::time_point_sec& payout_time_,
+                uint32_t sequence_)
         : reward_fund(reward_fund_)
         , total_claims(total_claims_)
         , payout(payout_)
         , payout_time(payout_time_)
+        , sequence(sequence_)
     {
     }
 
@@ -166,30 +221,66 @@ struct payout_info
     fc::uint128_t total_claims = 0u;
     share_type payout;
     fc::time_point_sec payout_time;
+    uint32_t sequence = 0;
 };
+#endif
 }
 
 using namespace database_fixture;
 
-BOOST_FIXTURE_TEST_SUITE(comment_payout_sp_curve_tests, comment_payout_sp_curve_fixture)
+BOOST_FIXTURE_TEST_SUITE(find_asymptote_tests, find_asymptote_fixture)
 
-// BOOST_AUTO_TEST_CASE(calc_reward_for_n_days)
-//{
-//    share_type reward = reward_sp_perblock.amount;
-//    reward *= fc::days(7).to_seconds();
-//    reward /= SCORUM_BLOCK_INTERVAL;
-
-//    BOOST_REQUIRE_GT(reward, share_type());
-//}
-
-BOOST_AUTO_TEST_CASE(comment_payout_sp_curve)
+BOOST_AUTO_TEST_CASE(find_asymptote_in_voting_power_decreasing)
 {
-    using author_rewards_type = std::vector<payout_info>;
-    const int max_iterations = fc::days(365).to_seconds() / SCORUM_BLOCK_INTERVAL;
-    const int rewards_per_block = fc::minutes(10).to_seconds() / SCORUM_BLOCK_INTERVAL;
+    const int vote_period = fc::minutes(60).to_seconds();
+    const int max_iterations = fc::days(7).to_seconds() / vote_period;
 
+#ifdef PRINT_CURVE_POINTS
+    using voting_powers_type = std::vector<voting_power_info>;
+    voting_powers_type vps;
+    vps.reserve(max_iterations);
+#endif
+
+    percent_type voting_power = SCORUM_100_PERCENT;
+    fc::time_point_sec now = db.head_block_time();
+    fc::time_point_sec last_vote_time = now - SCORUM_BLOCK_INTERVAL * 1000;
+
+    percent_type prev_voting_power = 0;
+    int equal_times = 0;
+    int ci = 0;
+    for (; ci < max_iterations; ++ci)
+    {
+        get_voting_point(voting_power, now, last_vote_time, vote_period);
+        if (find_asymptote([=]() { return prev_voting_power == voting_power; }, equal_times))
+            break;
+#ifdef PRINT_CURVE_POINTS
+        vps.emplace_back(voting_power, last_vote_time, ci);
+#endif
+        prev_voting_power = voting_power;
+    }
+
+#ifdef PRINT_CURVE_POINTS
+    for (const voting_power_info& info : vps)
+    {
+        wlog(">> ${c} - ${T}: voting_power = ${v}", ("c", info.sequence)("T", info.time)("v", info.voting_power));
+    }
+#endif
+
+    BOOST_REQUIRE_LT(ci, max_iterations);
+}
+
+BOOST_AUTO_TEST_CASE(find_asymptote_in_payout_alg)
+{
+    // 1.5 year
+    const int max_iterations = fc::days(365 * 3 / 2).to_seconds() / SCORUM_BLOCK_INTERVAL;
+    // cashout each 30 minutes
+    const int comment_cashout_period = fc::minutes(30).to_seconds() / SCORUM_BLOCK_INTERVAL;
+
+#ifdef PRINT_CURVE_POINTS
+    using author_rewards_type = std::vector<payout_info>;
     author_rewards_type rewards;
     rewards.reserve(max_iterations);
+#endif
 
     fc::uint128_t total_claims = reward_fund_sp_service.get().recent_claims;
 
@@ -203,34 +294,41 @@ BOOST_AUTO_TEST_CASE(comment_payout_sp_curve)
 
     total_claims = fc::uint128_t(reward_sp_perblock.amount.value * fc::days(70).to_seconds() / SCORUM_BLOCK_INTERVAL);
 
-    for (int ci = 0; ci < fc::days(7).to_seconds() / SCORUM_BLOCK_INTERVAL; ++ci)
+    int ci = 0;
+    for (; ci < fc::days(7).to_seconds() / SCORUM_BLOCK_INTERVAL; ++ci)
     {
-        each_block_itertion(reward_sp_perblock.amount, reward_fund, total_claims, now, last_payout);
+        process_per_block_without_cashout_comments(reward_sp_perblock.amount, reward_fund, total_claims, now,
+                                                   last_payout);
     }
 
     share_type prev_payout;
-    for (int ci = 0; ci < max_iterations; ++ci)
+    int equal_times = 0;
+    for (ci = 0; ci < max_iterations; ++ci)
     {
-        each_block_itertion(reward_sp_perblock.amount, reward_fund, total_claims, now, last_payout);
-        if (ci % rewards_per_block == 0)
+        process_per_block_without_cashout_comments(reward_sp_perblock.amount, reward_fund, total_claims, now,
+                                                   last_payout);
+        if (ci % comment_cashout_period == 0)
         {
-            auto payout = reward_itertion(rshares, reward_fund, total_claims);
-            if (payout == prev_payout)
-            {
-                wlog("${T}: total_claims = ${t}\treward_fund = ${r}\tpayout = ${p}",
-                     ("T", last_payout)("t", total_claims)("r", reward_fund.value / 1e+9)("p", payout.value / 1e+9));
-            }
-            rewards.emplace_back(reward_fund, total_claims, payout, last_payout);
+            auto payout = process_per_block_for_cashout_comments(rshares, reward_fund, total_claims);
+            if (find_asymptote([=]() { return payout == prev_payout; }, equal_times))
+                break;
+#ifdef PRINT_CURVE_POINTS
+            rewards.emplace_back(reward_fund, total_claims, payout, last_payout, ci);
+#endif
             prev_payout = payout;
         }
     }
 
+#ifdef PRINT_CURVE_POINTS
     for (const payout_info& info : rewards)
     {
-        wlog("${T}: total_claims = ${t}\treward_fund = ${r}\tpayout = ${p}",
-             ("T", info.payout_time)("t", info.total_claims)("r", info.reward_fund.value / 1e+9)(
+        wlog(">> ${c} - ${T}: total_claims = ${t}\treward_fund = ${r}\tpayout = ${p}",
+             ("c", info.sequence)("T", info.payout_time)("t", info.total_claims)("r", info.reward_fund.value / 1e+9)(
                  "p", info.payout.value / 1e+9));
     }
+#endif
+
+    BOOST_REQUIRE_LT(ci, max_iterations);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
