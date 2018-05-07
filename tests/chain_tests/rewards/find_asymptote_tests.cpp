@@ -186,6 +186,11 @@ struct find_asymptote_fixture : public blogging_common_fixture
         now += sec_delta;
     }
 
+#ifdef PRINT_CURVE_POINTS
+    const char* pstr_delimiter = ",";
+    const char* pstr_endl = "\n";
+#endif
+
     void plot_curve_of_voting_points(const int vote_period,
                                      const int max_iterations,
                                      const percent_type decay_percent = SCORUM_VOTING_POWER_DECAY_PERCENT)
@@ -194,6 +199,9 @@ struct find_asymptote_fixture : public blogging_common_fixture
         using voting_powers_type = std::vector<voting_power_info>;
         voting_powers_type vps;
         vps.reserve(max_iterations);
+        std::cerr << ">>> decay_percent = " << decay_percent << pstr_endl;
+        std::cerr << "sequence" << pstr_delimiter << "time" << pstr_delimiter << "voting_power" << pstr_endl;
+        std::cerr << "======================================" << pstr_endl;
 #endif
 
         percent_type voting_power = SCORUM_100_PERCENT;
@@ -217,8 +225,8 @@ struct find_asymptote_fixture : public blogging_common_fixture
 #ifdef PRINT_CURVE_POINTS
         for (const voting_power_info& info : vps)
         {
-            wlog(">> ${c} - ${T}: voting_power = ${v}%",
-                 ("c", info.sequence)("T", info.time)("v", info.voting_power * 100 / SCORUM_100_PERCENT));
+            std::cerr << info.sequence << pstr_delimiter << info.time.to_iso_string() << pstr_delimiter
+                      << info.voting_power * 100.f / SCORUM_100_PERCENT << pstr_endl;
         }
 #endif
 
@@ -259,22 +267,32 @@ struct find_asymptote_fixture : public blogging_common_fixture
         return payout;
     }
 
-    void
-    plot_curve_of_payout_points(const int comment_cashout_period, const int max_iterations, const share_type rshares)
+    void plot_curve_of_payout_points(const int comment_cashout_period,
+                                     const int max_iterations,
+                                     const share_type rshares,
+                                     const int initial_total_claims_decay)
     {
 #ifdef PRINT_CURVE_POINTS
         using author_rewards_type = std::vector<payout_info>;
         author_rewards_type rewards;
         rewards.reserve(max_iterations);
+        std::cerr << ">>> initial_total_claims_decay = " << initial_total_claims_decay << pstr_delimiter << "..."
+                  << pstr_endl;
+        std::cerr << "sequence" << pstr_delimiter << "payout_time" << pstr_delimiter << "total_claims" << pstr_delimiter
+                  << "reward_fund" << pstr_delimiter << "payout" << pstr_endl;
+        std::cerr << "======================================" << pstr_endl;
 #endif
 
-        fc::uint128_t total_claims = reward_fund_sp_service.get().recent_claims;
+        fc::uint128_t total_claims;
         share_type reward_fund = 0;
         fc::time_point_sec last_payout = db.head_block_time();
         fc::time_point_sec now = last_payout + SCORUM_BLOCK_INTERVAL;
 
+        BOOST_REQUIRE_GT(initial_total_claims_decay, 0);
+
         total_claims
             = fc::uint128_t(reward_sp_perblock.amount.value * fc::days(70).to_seconds() / SCORUM_BLOCK_INTERVAL);
+        total_claims /= initial_total_claims_decay;
 
         int ci = 0;
         for (; ci < fc::days(7).to_seconds() / SCORUM_BLOCK_INTERVAL; ++ci)
@@ -304,9 +322,9 @@ struct find_asymptote_fixture : public blogging_common_fixture
 #ifdef PRINT_CURVE_POINTS
         for (const payout_info& info : rewards)
         {
-            wlog(">> ${c} - ${T}: total_claims = ${t}\treward_fund = ${r}\tpayout = ${p}",
-                 ("c", info.sequence)("T", info.payout_time)("t", info.total_claims)(
-                     "r", info.reward_fund.value / 1e+9)("p", info.payout.value / 1e+9));
+            std::cerr << info.sequence << pstr_delimiter << info.payout_time.to_iso_string() << pstr_delimiter
+                      << (std::string)info.total_claims << pstr_delimiter << info.reward_fund.value << pstr_delimiter
+                      << info.payout.value << pstr_endl;
         }
 #endif
 
@@ -334,29 +352,32 @@ BOOST_FIXTURE_TEST_SUITE(find_asymptote_tests, find_asymptote_fixture)
 //    plot_curve_of_voting_points(vote_period, max_iterations);
 //}
 
-BOOST_AUTO_TEST_CASE(find_asymptote_in_voting_power_decreasing_multy_coeff)
-{
-    const int vote_period = fc::minutes(1).to_seconds();
-    const int max_iterations = fc::days(14).to_seconds() / vote_period;
-
-    plot_curve_of_voting_points(vote_period, max_iterations, 3);
-    plot_curve_of_voting_points(vote_period, max_iterations, 4);
-    plot_curve_of_voting_points(vote_period, max_iterations, 5);
-}
-
-// BOOST_AUTO_TEST_CASE(find_asymptote_in_payout_alg)
+// BOOST_AUTO_TEST_CASE(find_asymptote_in_voting_power_decreasing_multy_coeff)
 //{
-//    // 1.5 year
-//    const int max_iterations = fc::days(365 * 3 / 2).to_seconds() / SCORUM_BLOCK_INTERVAL;
-//    // cashout each 30 minutes
-//    const int comment_cashout_period = fc::minutes(10).to_seconds() / SCORUM_BLOCK_INTERVAL;
+//    const int vote_period = fc::minutes(1).to_seconds();
+//    const int max_iterations = fc::days(14).to_seconds() / vote_period;
 
-//    share_type rshares = calculate_rshares_for_post(alice, { bob, sam });
-
-//    BOOST_REQUIRE_GT(rshares, share_type());
-
-//    plot_curve_of_payout_points(comment_cashout_period, max_iterations, rshares);
+//    plot_curve_of_voting_points(vote_period, max_iterations, 3);
+//    plot_curve_of_voting_points(vote_period, max_iterations, 4);
+//    plot_curve_of_voting_points(vote_period, max_iterations, 5);
 //}
+
+BOOST_AUTO_TEST_CASE(find_asymptote_in_payout_alg)
+{
+    // 1.5 year
+    const int max_iterations = fc::days(365 * 3 / 2).to_seconds() / SCORUM_BLOCK_INTERVAL;
+    // cashout each 30 minutes
+    const int comment_cashout_period = fc::minutes(10).to_seconds() / SCORUM_BLOCK_INTERVAL;
+
+    share_type rshares = calculate_rshares_for_post(alice, { bob, sam });
+
+    BOOST_REQUIRE_GT(rshares, share_type());
+
+    //    plot_curve_of_payout_points(comment_cashout_period, max_iterations, rshares,
+    //                                reward_fund_sp_service.get().recent_claims);
+
+    plot_curve_of_payout_points(comment_cashout_period, max_iterations, rshares, 1);
+}
 
 BOOST_AUTO_TEST_SUITE_END()
 }
