@@ -786,6 +786,22 @@ public:
         return _state;
     }
 
+    std::vector<api::discussion> get_discussions_by_top_paid(const api::discussion_query& query) const
+    {
+        query.validate();
+        auto tag = fc::to_lower(query.tag);
+        auto parent = get_parent(query);
+
+        // TODO
+
+        const auto& tidx = _db.get_index<tags::tag_index>().indices().get<tags::by_net_rshares>();
+        auto tidx_itr = tidx.lower_bound(tag);
+
+        return get_discussions(query, tag, parent, tidx, tidx_itr, query.truncate_body,
+                               [](const comment_api_obj& c) { return c.net_rshares <= 0; }, exit_default,
+                               tag_exit_default, true);
+    }
+
 private:
     scorum::chain::database& _db;
     scorum::chain::data_service_factory_i& _services;

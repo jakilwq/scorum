@@ -87,6 +87,8 @@ public:
      *  with a single query.
      */
     scorum::tags::api::state get_state(std::string path) const;
+
+    std::vector<api::discussion> get_discussions_by_top_paid(const api::discussion_query& query) const;
 };
 
 } // namespace tags
@@ -110,6 +112,8 @@ FC_API(scorum::tags::tags_api,
        (get_discussions_by_comments)
 
        (get_state)
+
+       (get_discussions_by_top_paid)
 
        // content
        (get_content)

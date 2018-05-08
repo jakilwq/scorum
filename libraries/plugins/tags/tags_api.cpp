@@ -159,5 +159,10 @@ state tags_api::get_state(std::string path) const
     FC_CAPTURE_AND_RETHROW((path))
 }
 
+std::vector<api::discussion> tags_api::get_discussions_by_top_paid(const api::discussion_query& query) const
+{
+    return guard().with_read_lock([&]() { return _impl->get_discussions_by_top_paid(query); });
+}
+
 } // namespace tags
 } // namespace scorum
