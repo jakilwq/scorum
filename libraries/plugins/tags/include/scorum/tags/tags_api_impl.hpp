@@ -22,6 +22,12 @@
 #include <scorum/tags/tags_api_objects.hpp>
 #include <scorum/tags/tags_service.hpp>
 
+#include <boost/lambda/lambda.hpp>
+#include <boost/multi_index/detail/unbounded.hpp>
+
+#include <tuple>
+#include <limits>
+
 namespace scorum {
 namespace tags {
 
@@ -94,7 +100,7 @@ public:
         const auto& tidx = _db.get_index<tags::tag_index>().indices().get<tags::by_net_rshares>();
         auto tidx_itr = tidx.lower_bound(tag);
 
-        return get_discussions(query, tag, parent, tidx, tidx_itr, query.truncate_body,
+        return get_discussions(query, tag, parent, tidx, tidx_itr, tidx.end(), query.truncate_body,
                                [](const comment_api_obj& c) { return c.net_rshares <= 0; }, exit_default,
                                tag_exit_default, true);
     }
@@ -108,7 +114,7 @@ public:
         const auto& tidx = _db.get_index<tags::tag_index>().indices().get<tags::by_reward_fund_net_rshares>();
         auto tidx_itr = tidx.lower_bound(boost::make_tuple(tag, true));
 
-        return get_discussions(query, tag, parent, tidx, tidx_itr, query.truncate_body,
+        return get_discussions(query, tag, parent, tidx, tidx_itr, tidx.end(), query.truncate_body,
                                [](const comment_api_obj& c) { return c.net_rshares <= 0; }, exit_default,
                                tag_exit_default, true);
     }
@@ -122,7 +128,7 @@ public:
         const auto& tidx = _db.get_index<tags::tag_index>().indices().get<tags::by_reward_fund_net_rshares>();
         auto tidx_itr = tidx.lower_bound(boost::make_tuple(tag, false));
 
-        return get_discussions(query, tag, parent, tidx, tidx_itr, query.truncate_body,
+        return get_discussions(query, tag, parent, tidx, tidx_itr, tidx.end(), query.truncate_body,
                                [](const comment_api_obj& c) { return c.net_rshares <= 0; }, exit_default,
                                tag_exit_default, true);
     }
@@ -136,7 +142,7 @@ public:
         const auto& tidx = _db.get_index<tags::tag_index>().indices().get<tags::by_parent_trending>();
         auto tidx_itr = tidx.lower_bound(boost::make_tuple(tag, parent, std::numeric_limits<double>::max()));
 
-        return get_discussions(query, tag, parent, tidx, tidx_itr, query.truncate_body,
+        return get_discussions(query, tag, parent, tidx, tidx_itr, tidx.end(), query.truncate_body,
                                [](const comment_api_obj& c) { return c.net_rshares <= 0; });
     }
 
@@ -149,7 +155,7 @@ public:
         const auto& tidx = _db.get_index<tags::tag_index>().indices().get<tags::by_parent_created>();
         auto tidx_itr = tidx.lower_bound(boost::make_tuple(tag, parent, fc::time_point_sec::maximum()));
 
-        return get_discussions(query, tag, parent, tidx, tidx_itr, query.truncate_body);
+        return get_discussions(query, tag, parent, tidx, tidx_itr, tidx.end(), query.truncate_body);
     }
 
     std::vector<discussion> get_discussions_by_hot(const discussion_query& query) const
@@ -161,7 +167,7 @@ public:
         const auto& tidx = _db.get_index<tags::tag_index>().indices().get<tags::by_parent_hot>();
         auto tidx_itr = tidx.lower_bound(boost::make_tuple(tag, parent, std::numeric_limits<double>::max()));
 
-        return get_discussions(query, tag, parent, tidx, tidx_itr, query.truncate_body,
+        return get_discussions(query, tag, parent, tidx, tidx_itr, tidx.end(), query.truncate_body,
                                [](const comment_api_obj& c) { return c.net_rshares <= 0; });
     }
 
@@ -174,8 +180,8 @@ public:
         const auto& tidx = _db.get_index<tags::tag_index>().indices().get<tags::by_parent_promoted>();
         auto tidx_itr = tidx.lower_bound(boost::make_tuple(tag, parent, share_type(SCORUM_MAX_SHARE_SUPPLY)));
 
-        return get_discussions(query, tag, parent, tidx, tidx_itr, query.truncate_body, filter_default, exit_default,
-                               [](const tags::tag_object& t) { return t.promoted_balance == 0; });
+        return get_discussions(query, tag, parent, tidx, tidx_itr, tidx.end(), query.truncate_body, filter_default,
+                               exit_default, [](const tags::tag_object& t) { return t.promoted_balance == 0; });
     }
 
     std::vector<discussion> get_discussions_by_active(const discussion_query& query) const
@@ -187,7 +193,7 @@ public:
         const auto& tidx = _db.get_index<tags::tag_index>().indices().get<tags::by_parent_active>();
         auto tidx_itr = tidx.lower_bound(boost::make_tuple(tag, parent, fc::time_point_sec::maximum()));
 
-        return get_discussions(query, tag, parent, tidx, tidx_itr, query.truncate_body);
+        return get_discussions(query, tag, parent, tidx, tidx_itr, tidx.end(), query.truncate_body);
     }
 
     std::vector<discussion> get_discussions_by_cashout(const discussion_query& query) const
@@ -201,7 +207,7 @@ public:
         const auto& tidx = _db.get_index<tags::tag_index>().indices().get<tags::by_cashout>();
         auto tidx_itr = tidx.lower_bound(boost::make_tuple(tag, fc::time_point::now() - fc::minutes(60)));
 
-        return get_discussions(query, tag, parent, tidx, tidx_itr, query.truncate_body,
+        return get_discussions(query, tag, parent, tidx, tidx_itr, tidx.end(), query.truncate_body,
                                [](const comment_api_obj& c) { return c.net_rshares < 0; });
     }
 
@@ -214,7 +220,7 @@ public:
         const auto& tidx = _db.get_index<tags::tag_index>().indices().get<tags::by_parent_net_votes>();
         auto tidx_itr = tidx.lower_bound(boost::make_tuple(tag, parent, std::numeric_limits<int32_t>::max()));
 
-        return get_discussions(query, tag, parent, tidx, tidx_itr, query.truncate_body);
+        return get_discussions(query, tag, parent, tidx, tidx_itr, tidx.end(), query.truncate_body);
     }
 
     std::vector<discussion> get_discussions_by_children(const discussion_query& query) const
@@ -226,7 +232,7 @@ public:
         const auto& tidx = _db.get_index<tags::tag_index>().indices().get<tags::by_parent_children>();
         auto tidx_itr = tidx.lower_bound(boost::make_tuple(tag, parent, std::numeric_limits<int32_t>::max()));
 
-        return get_discussions(query, tag, parent, tidx, tidx_itr, query.truncate_body);
+        return get_discussions(query, tag, parent, tidx, tidx_itr, tidx.end(), query.truncate_body);
     }
 
     std::vector<discussion> get_discussions_by_comments(const discussion_query& query) const
@@ -792,14 +798,15 @@ public:
         auto tag = fc::to_lower(query.tag);
         auto parent = get_parent(query);
 
-        // TODO
+        const int64_t all = std::numeric_limits<int64_t>::max();
 
-        const auto& tidx = _db.get_index<tags::tag_index>().indices().get<tags::by_net_rshares>();
-        auto tidx_itr = tidx.lower_bound(tag);
+        const auto& idx = _db.get_index<tags::tag_index>().indices().get<tags::by_predicted_first_payout>();
+        auto start = boost::make_tuple(tag, fc::time_point_sec::maximum(), fc::time_point_sec(), all, 0);
+        auto end = boost::make_tuple(tag, fc::time_point_sec::maximum(), fc::time_point_sec::maximum(), 1, all);
+        auto range = idx.range(start <= boost::lambda::_1, boost::lambda::_1 <= end);
 
-        return get_discussions(query, tag, parent, tidx, tidx_itr, query.truncate_body,
-                               [](const comment_api_obj& c) { return c.net_rshares <= 0; }, exit_default,
-                               tag_exit_default, true);
+        return get_discussions(query, tag, parent, idx, range.first, range.second, query.truncate_body, filter_default,
+                               exit_default, tag_exit_default, true);
     }
 
 private:
@@ -946,12 +953,13 @@ private:
         return result;
     }
 
-    template <typename Index, typename StartItr>
+    template <typename Index, typename StartItr, typename EndItr>
     std::vector<discussion> get_discussions(const discussion_query& query,
                                             const std::string& tag,
                                             comment_id_type parent,
                                             const Index& tidx,
                                             StartItr tidx_itr,
+                                            EndItr tidx_itr_end,
                                             uint32_t truncate_body = 0,
                                             const std::function<bool(const comment_api_obj&)>& filter = &filter_default,
                                             const std::function<bool(const comment_api_obj&)>& exit = &exit_default,
@@ -984,7 +992,7 @@ private:
         uint64_t exc_count = 0;
         uint64_t max_itr_count = 10 * query.limit;
 
-        while (count > 0 && tidx_itr != tidx.end())
+        while (count > 0 && tidx_itr != tidx_itr_end)
         {
             ++itr_count;
             if (itr_count > max_itr_count)

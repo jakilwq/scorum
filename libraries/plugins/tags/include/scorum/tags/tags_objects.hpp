@@ -70,6 +70,7 @@ public:
     time_point_sec created;
     time_point_sec active;
     time_point_sec cashout;
+    time_point_sec predicted_first_payout;
     int64_t net_rshares = 0;
     int32_t net_votes = 0;
     int32_t children = 0;
@@ -104,6 +105,7 @@ struct by_author_comment;
 struct by_reward_fund_net_rshares;
 struct by_comment;
 struct by_tag;
+struct by_predicted_first_payout;
 
 // clang-format off
 typedef shared_multi_index_container<
@@ -236,8 +238,20 @@ typedef shared_multi_index_container<
                        composite_key_compare<std::less<tag_name_type>,
                                              std::less<bool>,
                                              std::greater<int64_t>,
-                                             std::less<tag_id_type>>>>
-    >
+                                             std::less<tag_id_type>>>,
+        ordered_unique<tag<by_predicted_first_payout>,
+                        composite_key<tag_object,
+                                    member<tag_object, tag_name_type, &tag_object::tag>,
+                                    member<tag_object, time_point_sec, &tag_object::cashout>,
+                                    member<tag_object, time_point_sec, &tag_object::predicted_first_payout>,
+                                    member<tag_object, int64_t, &tag_object::net_rshares>,
+                                    member<tag_object, tag_id_type, &tag_object::id>>,
+                        composite_key_compare<std::less<tag_name_type>,
+                                              std::less<time_point_sec>,
+                                              std::less<time_point_sec>,
+                                              std::greater<int64_t>,
+                                              std::less<tag_id_type>>>
+    >>
     tag_index;
 // clang-format on
 
@@ -427,6 +441,7 @@ FC_REFLECT(scorum::tags::tag_object,
            (created)
            (active)
            (cashout)
+           (predicted_first_payout)
            (net_rshares)
            (net_votes)
            (hot)

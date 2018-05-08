@@ -45,6 +45,8 @@ public:
 
     time_point_sec last_payout;
 
+    time_point_sec predicted_first_payout;
+
     /// used to track max nested depth
     uint16_t depth = 0;
 
@@ -326,7 +328,7 @@ using comment_statistic_sp_index = comment_statistic_index<comment_statistic_sp_
 FC_REFLECT( scorum::chain::comment_object,
              (id)(author)(permlink)
              (category)(parent_author)(parent_permlink)
-             (title)(body)(json_metadata)(last_update)(created)(active)(last_payout)
+             (title)(body)(json_metadata)(last_update)(created)(active)(last_payout)(predicted_first_payout)
              (depth)(children)
              (net_rshares)(abs_rshares)(vote_rshares)
              (children_abs_rshares)(cashout_time)

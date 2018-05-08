@@ -425,6 +425,7 @@ void comment_evaluator::do_apply(const comment_operation& o)
                 }
 
                 com.cashout_time = com.created + SCORUM_CASHOUT_WINDOW_SECONDS;
+                com.predicted_first_payout = com.cashout_time;
 
 #ifndef IS_LOW_MEM
                 fc::from_string(com.title, o.title);

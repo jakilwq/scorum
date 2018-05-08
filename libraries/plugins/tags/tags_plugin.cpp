@@ -14,6 +14,8 @@
 #include <scorum/chain/services/account.hpp>
 #include <scorum/chain/services/comment.hpp>
 
+#include <scorum/common_api/config.hpp>
+
 #include <fc/smart_ref_impl.hpp>
 #include <fc/thread/thread.hpp>
 #include <fc/io/json.hpp>
@@ -168,7 +170,7 @@ struct operation_visitor
         const auto& stats = get_stats(current.tag);
         remove_stats(current, stats);
 
-        if (comment.cashout_time != fc::time_point_sec::maximum())
+        if (comment.predicted_first_payout + TAG_LIFETIME_AFTER_CASHOUT_SEC < _db.head_block_time())
         {
             _db.modify(current, [&](tag_object& obj) {
                 obj.active = comment.active;
