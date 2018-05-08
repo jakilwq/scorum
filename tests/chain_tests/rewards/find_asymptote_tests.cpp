@@ -12,7 +12,14 @@
 
 #include <scorum/rewards_math/formulas.hpp>
 
-#define PRINT_CURVE_POINTS
+#include <boost/filesystem.hpp>
+#include <boost/filesystem/fstream.hpp>
+#include <boost/iostreams/filtering_stream.hpp>
+#include <boost/iostreams/filter/gzip.hpp>
+
+#include <sstream>
+
+//#define PRINT_CURVE_POINTS
 
 namespace find_asymptote_tests {
 
@@ -25,7 +32,6 @@ using fc::uint128_t;
 
 using namespace database_fixture;
 
-#ifdef PRINT_CURVE_POINTS
 struct voting_power_info
 {
     voting_power_info(const percent_type& voting_power_, const fc::time_point_sec& time_, uint32_t sequence_)
@@ -61,7 +67,12 @@ struct payout_info
     fc::time_point_sec payout_time;
     uint32_t sequence = 0;
 };
-#endif
+
+struct stat_comment_data
+{
+    int secs_from_prev = 0;
+    int votes = 0;
+};
 
 struct find_asymptote_fixture : public blogging_common_fixture
 {
@@ -186,10 +197,8 @@ struct find_asymptote_fixture : public blogging_common_fixture
         now += sec_delta;
     }
 
-#ifdef PRINT_CURVE_POINTS
-    const char* pstr_delimiter = ",";
+    const char ch_delimiter = ',';
     const char* pstr_endl = "\n";
-#endif
 
     void plot_curve_of_voting_points(const int vote_period,
                                      const int max_iterations,
@@ -200,7 +209,7 @@ struct find_asymptote_fixture : public blogging_common_fixture
         voting_powers_type vps;
         vps.reserve(max_iterations);
         std::cerr << ">>> decay_percent = " << decay_percent << pstr_endl;
-        std::cerr << "sequence" << pstr_delimiter << "time" << pstr_delimiter << "voting_power" << pstr_endl;
+        std::cerr << "sequence" << ch_delimiter << "time" << ch_delimiter << "voting_power" << pstr_endl;
         std::cerr << "======================================" << pstr_endl;
 #endif
 
@@ -225,7 +234,7 @@ struct find_asymptote_fixture : public blogging_common_fixture
 #ifdef PRINT_CURVE_POINTS
         for (const voting_power_info& info : vps)
         {
-            std::cerr << info.sequence << pstr_delimiter << info.time.to_iso_string() << pstr_delimiter
+            std::cerr << info.sequence << ch_delimiter << info.time.to_iso_string() << ch_delimiter
                       << info.voting_power * 100.f / SCORUM_100_PERCENT << pstr_endl;
         }
 #endif
@@ -267,19 +276,20 @@ struct find_asymptote_fixture : public blogging_common_fixture
         return payout;
     }
 
+    using author_rewards_type = std::vector<payout_info>;
+
     void plot_curve_of_payout_points(const int comment_cashout_period,
                                      const int max_iterations,
                                      const share_type rshares,
                                      const int initial_total_claims_decay)
     {
 #ifdef PRINT_CURVE_POINTS
-        using author_rewards_type = std::vector<payout_info>;
         author_rewards_type rewards;
         rewards.reserve(max_iterations);
-        std::cerr << ">>> initial_total_claims_decay = " << initial_total_claims_decay << pstr_delimiter << "..."
+        std::cerr << ">>> initial_total_claims_decay = " << initial_total_claims_decay << ch_delimiter << "..."
                   << pstr_endl;
-        std::cerr << "sequence" << pstr_delimiter << "payout_time" << pstr_delimiter << "total_claims" << pstr_delimiter
-                  << "reward_fund" << pstr_delimiter << "payout" << pstr_endl;
+        std::cerr << "sequence" << ch_delimiter << "payout_time" << ch_delimiter << "total_claims" << ch_delimiter
+                  << "reward_fund" << ch_delimiter << "payout" << pstr_endl;
         std::cerr << "======================================" << pstr_endl;
 #endif
 
@@ -322,8 +332,8 @@ struct find_asymptote_fixture : public blogging_common_fixture
 #ifdef PRINT_CURVE_POINTS
         for (const payout_info& info : rewards)
         {
-            std::cerr << info.sequence << pstr_delimiter << info.payout_time.to_iso_string() << pstr_delimiter
-                      << (std::string)info.total_claims << pstr_delimiter << info.reward_fund.value << pstr_delimiter
+            std::cerr << info.sequence << ch_delimiter << info.payout_time.to_iso_string() << ch_delimiter
+                      << (std::string)info.total_claims << ch_delimiter << info.reward_fund.value << ch_delimiter
                       << info.payout.value << pstr_endl;
         }
 #endif
@@ -331,8 +341,139 @@ struct find_asymptote_fixture : public blogging_common_fixture
         BOOST_REQUIRE_LT(ci, max_iterations);
     }
 
+    stat_comment_data get_stat_data(const std::string& line)
+    {
+        std::stringstream p(line);
+        stat_comment_data ret;
+        p >> ret.secs_from_prev;
+        p.ignore(1, ch_delimiter);
+        p >> ret.votes;
+        return ret;
+    }
+
+    void calc_stat_payout_point(const int cseq,
+                                const stat_comment_data& stat_data,
+                                const share_type rshares,
+                                fc::uint128_t& total_claims,
+                                share_type& reward_fund,
+                                fc::time_point_sec& last_payout,
+                                author_rewards_type& rewards)
+    {
+        fc::time_point_sec now = last_payout + SCORUM_BLOCK_INTERVAL;
+
+        int pass_blocks = stat_data.secs_from_prev / SCORUM_BLOCK_INTERVAL - 1;
+        int ci = 0;
+        for (; ci < pass_blocks; ++ci)
+        {
+            process_per_block_without_cashout_comments(reward_sp_perblock.amount, reward_fund, total_claims, now,
+                                                       last_payout);
+        }
+
+        process_per_block_without_cashout_comments(reward_sp_perblock.amount, reward_fund, total_claims, now,
+                                                   last_payout);
+
+        auto payout = process_per_block_for_cashout_comments(rshares, reward_fund, total_claims);
+        rewards.emplace_back(reward_fund, total_claims, payout, last_payout, cseq);
+    }
+
+    void process_stat_file(const std::string& input_data_file, const std::string& output_result_file)
+    {
+        share_type rshares = calculate_rshares_for_post(alice, { bob, sam });
+
+        boost::filesystem::path path_to_input(input_data_file);
+
+        path_to_input.normalize();
+
+        BOOST_REQUIRE(boost::filesystem::exists(path_to_input));
+
+        auto ext = boost::filesystem::extension(path_to_input.string());
+        bool zipped = (ext == ".gz" || ext == ".zip");
+
+        boost::filesystem::ifstream fl_in;
+        fl_in.open(path_to_input.string(), zipped ? (std::ios_base::in | std::ios_base::binary) : (std::ios_base::in));
+
+        BOOST_REQUIRE((bool)fl_in);
+
+        fc::uint128_t total_claims;
+        share_type reward_fund = 0;
+        fc::time_point_sec last_payout = db.head_block_time();
+        fc::time_point_sec now = last_payout + SCORUM_BLOCK_INTERVAL;
+
+        total_claims
+            = fc::uint128_t(reward_sp_perblock.amount.value * fc::days(70).to_seconds() / SCORUM_BLOCK_INTERVAL);
+
+        int ci = 0;
+        for (; ci < fc::days(7).to_seconds() / SCORUM_BLOCK_INTERVAL; ++ci)
+        {
+            process_per_block_without_cashout_comments(reward_sp_perblock.amount, reward_fund, total_claims, now,
+                                                       last_payout);
+        }
+
+        author_rewards_type rewards;
+#ifdef PRINT_CURVE_POINTS
+        //        std::cerr << ">>> initial_total_claims_decay = " << initial_total_claims_decay << ch_delimiter <<
+        //        "..."
+        //                  << pstr_endl;
+        std::cerr << "sequence" << ch_delimiter << "payout_time" << ch_delimiter << "total_claims" << ch_delimiter
+                  << "reward_fund" << ch_delimiter << "payout" << pstr_endl;
+        std::cerr << "======================================" << pstr_endl;
+#endif
+
+        try
+        {
+            boost::iostreams::filtering_istream in;
+            if (zipped)
+            {
+                in.push(boost::iostreams::gzip_decompressor());
+            }
+            in.push(fl_in);
+
+            int secs_from_prev = 0;
+            int cseq = 0;
+            for (std::string str; std::getline(in, str);)
+            {
+                stat_comment_data stat = get_stat_data(str);
+                if (stat.votes < 1)
+                {
+                    secs_from_prev += stat.secs_from_prev;
+                    continue;
+                }
+
+                stat.secs_from_prev += secs_from_prev;
+                secs_from_prev = 0;
+                calc_stat_payout_point(++cseq, stat, rshares, total_claims, reward_fund, last_payout, rewards);
+            }
+        }
+        catch (const boost::iostreams::gzip_error& e)
+        {
+            std::cerr << e.what() << '\n';
+            BOOST_CHECK(false);
+        }
+
+        fl_in.close();
+
+        boost::filesystem::ofstream fl_out;
+        fl_out.open(boost::filesystem::path(output_result_file).string(), std::ios_base::out);
+
+        for (const payout_info& info : rewards)
+        {
+#ifdef PRINT_CURVE_POINTS
+            std::cerr << info.sequence << ch_delimiter << info.payout_time.to_iso_string() << ch_delimiter
+                      << (std::string)info.total_claims << ch_delimiter << info.reward_fund.value << ch_delimiter
+                      << info.payout.value << pstr_endl;
+#endif
+            fl_out << info.sequence << ch_delimiter << info.payout_time.to_iso_string() << ch_delimiter
+                   << (std::string)info.total_claims << ch_delimiter << info.reward_fund.value << ch_delimiter
+                   << info.payout.value << pstr_endl;
+        }
+
+        fl_out.close();
+    }
+
     budget_service_i& budget_service;
     reward_fund_sp_service_i& reward_fund_sp_service;
+
+    const std::string str_storage_root = "/home/am/_Blogging/tests/";
 
     Actor alice;
     Actor bob;
@@ -373,10 +514,49 @@ BOOST_AUTO_TEST_CASE(find_asymptote_in_payout_alg)
 
     BOOST_REQUIRE_GT(rshares, share_type());
 
-    //    plot_curve_of_payout_points(comment_cashout_period, max_iterations, rshares,
-    //                                reward_fund_sp_service.get().recent_claims);
-
     plot_curve_of_payout_points(comment_cashout_period, max_iterations, rshares, 1);
+    plot_curve_of_payout_points(comment_cashout_period, max_iterations, rshares, 10);
+    plot_curve_of_payout_points(comment_cashout_period, max_iterations, rshares, 100);
+}
+
+BOOST_AUTO_TEST_CASE(test_input_output)
+{
+    const std::string input_data_file = str_storage_root + "test_input_output_genered.csv";
+    const std::string output_result_file = str_storage_root + "test_input_output_result.csv";
+
+    // 1.5 year
+    const int max_iterations = fc::days(365 * 3 / 2).to_seconds() / SCORUM_BLOCK_INTERVAL;
+    // cashout each 30 minutes
+    const int comment_cashout_period = fc::minutes(10).to_seconds() / SCORUM_BLOCK_INTERVAL;
+
+    boost::filesystem::ofstream fl_out;
+    fl_out.open(boost::filesystem::path(input_data_file).string(), std::ios_base::out);
+
+    int interval = 0;
+    for (int ci = 0; ci < max_iterations; ++ci)
+    {
+        if (ci % comment_cashout_period == 0)
+        {
+            fl_out << interval << ch_delimiter << 1 << pstr_endl;
+            interval = SCORUM_BLOCK_INTERVAL;
+        }
+        else
+        {
+            interval += SCORUM_BLOCK_INTERVAL;
+        }
+    }
+
+    fl_out.close();
+
+    process_stat_file(input_data_file, output_result_file);
+}
+
+BOOST_AUTO_TEST_CASE(prediction_by_steemit_data)
+{
+    const std::string input_data_file = str_storage_root + "prediction_by_steemit_data_steemit.csv";
+    const std::string output_result_file = str_storage_root + "prediction_by_steemit_data_result.csv";
+
+    process_stat_file(input_data_file, output_result_file);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
