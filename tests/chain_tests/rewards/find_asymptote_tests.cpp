@@ -400,7 +400,8 @@ struct find_asymptote_fixture : public blogging_common_fixture
         rewards.emplace_back(reward_fund, total_claims, payout, last_payout, cseq);
     }
 
-    void process_stat_file(const std::string& input_data_file,
+    void process_stat_file(const int lines_limit,
+                           const std::string& input_data_file,
                            const std::string& output_result_file,
                            const int initial_total_claims_decay = 1,
                            const fc::microseconds& decay_rate = SCORUM_RECENT_RSHARES_DECAY_RATE)
@@ -508,6 +509,7 @@ struct find_asymptote_fixture : public blogging_common_fixture
         boost::filesystem::ofstream fl_out;
         fl_out.open(boost::filesystem::path(output_result_file).string(), std::ios_base::out);
 
+        ci = 0;
         for (const payout_info& info : rewards)
         {
 #ifdef PRINT_CURVE_POINTS
@@ -515,6 +517,9 @@ struct find_asymptote_fixture : public blogging_common_fixture
                       << (std::string)info.total_claims << ch_delimiter << info.reward_fund.value << ch_delimiter
                       << info.payout.value << pstr_endl;
 #endif
+            if (++ci > lines_limit)
+                break;
+
             fl_out << info.sequence << ch_delimiter << info.payout_time.to_iso_string() << ch_delimiter
                    << (std::string)info.total_claims << ch_delimiter << info.reward_fund.value << ch_delimiter
                    << info.payout.value << pstr_endl;
@@ -616,20 +621,21 @@ BOOST_FIXTURE_TEST_SUITE(find_asymptote_tests, find_asymptote_fixture)
 
 //    fl_out.close();
 
-//    process_stat_file(input_data_file, output_result_file);
+//    process_stat_file(15000, input_data_file, output_result_file);
 //}
 
 BOOST_AUTO_TEST_CASE(prediction_by_steemit_data)
 {
+    const int lines_limit = 50000;
     const std::string input_data_file = str_storage_root + "prediction_by_steemit_data_steemit.csv";
     const std::string output_result_file_prefix = "prediction_by_steemit_data_result";
 
-    process_stat_file(input_data_file, get_result_file_name(str_storage_root, output_result_file_prefix, 1, 15), 1,
-                      fc::days(15));
-    process_stat_file(input_data_file, get_result_file_name(str_storage_root, output_result_file_prefix, 10, 15), 10,
-                      fc::days(15));
-    process_stat_file(input_data_file, get_result_file_name(str_storage_root, output_result_file_prefix, 100, 15), 100,
-                      fc::days(15));
+    process_stat_file(lines_limit, input_data_file,
+                      get_result_file_name(str_storage_root, output_result_file_prefix, 1, 15), 1, fc::days(15));
+    process_stat_file(lines_limit, input_data_file,
+                      get_result_file_name(str_storage_root, output_result_file_prefix, 2, 15), 2, fc::days(15));
+    process_stat_file(lines_limit, input_data_file,
+                      get_result_file_name(str_storage_root, output_result_file_prefix, 3, 15), 3, fc::days(15));
 }
 
 BOOST_AUTO_TEST_SUITE_END()
