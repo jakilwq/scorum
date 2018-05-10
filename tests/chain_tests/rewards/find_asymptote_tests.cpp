@@ -70,8 +70,10 @@ struct payout_info
 
 struct stat_comment_data
 {
-    int secs_from_prev = 0;
-    int votes = 0;
+    int num_votes = 0;
+    fc::time_point_sec timestamp;
+    int secs_from_previous_post = 0;
+    int total_weight = 0;
 };
 
 struct find_asymptote_fixture : public blogging_common_fixture
@@ -246,10 +248,11 @@ struct find_asymptote_fixture : public blogging_common_fixture
                                                     share_type& reward_fund,
                                                     fc::uint128_t& total_claims,
                                                     fc::time_point_sec& now,
-                                                    fc::time_point_sec& last_update)
+                                                    fc::time_point_sec& last_update,
+                                                    const fc::microseconds& decay_rate
+                                                    = SCORUM_RECENT_RSHARES_DECAY_RATE)
     {
-        total_claims
-            = calculate_decreasing_total_claims(total_claims, now, last_update, SCORUM_RECENT_RSHARES_DECAY_RATE);
+        total_claims = calculate_decreasing_total_claims(total_claims, now, last_update, decay_rate);
 
         last_update = now;
         now += SCORUM_BLOCK_INTERVAL;
@@ -281,7 +284,8 @@ struct find_asymptote_fixture : public blogging_common_fixture
     void plot_curve_of_payout_points(const int comment_cashout_period,
                                      const int max_iterations,
                                      const share_type rshares,
-                                     const int initial_total_claims_decay)
+                                     const int initial_total_claims_decay = 1,
+                                     const fc::microseconds& decay_rate = SCORUM_RECENT_RSHARES_DECAY_RATE)
     {
 #ifdef PRINT_CURVE_POINTS
         author_rewards_type rewards;
@@ -299,6 +303,7 @@ struct find_asymptote_fixture : public blogging_common_fixture
         fc::time_point_sec now = last_payout + SCORUM_BLOCK_INTERVAL;
 
         BOOST_REQUIRE_GT(initial_total_claims_decay, 0);
+        BOOST_REQUIRE_GT(decay_rate.to_seconds(), fc::hours(1).to_seconds());
 
         total_claims
             = fc::uint128_t(reward_sp_perblock.amount.value * fc::days(70).to_seconds() / SCORUM_BLOCK_INTERVAL);
@@ -308,7 +313,7 @@ struct find_asymptote_fixture : public blogging_common_fixture
         for (; ci < fc::days(7).to_seconds() / SCORUM_BLOCK_INTERVAL; ++ci)
         {
             process_per_block_without_cashout_comments(reward_sp_perblock.amount, reward_fund, total_claims, now,
-                                                       last_payout);
+                                                       last_payout, decay_rate);
         }
 
         share_type prev_payout;
@@ -316,7 +321,7 @@ struct find_asymptote_fixture : public blogging_common_fixture
         for (ci = 0; ci < max_iterations; ++ci)
         {
             process_per_block_without_cashout_comments(reward_sp_perblock.amount, reward_fund, total_claims, now,
-                                                       last_payout);
+                                                       last_payout, decay_rate);
             if (ci % comment_cashout_period == 0)
             {
                 auto payout = process_per_block_for_cashout_comments(rshares, reward_fund, total_claims);
@@ -345,39 +350,64 @@ struct find_asymptote_fixture : public blogging_common_fixture
     {
         std::stringstream p(line);
         stat_comment_data ret;
-        p >> ret.secs_from_prev;
+        char tbuff[19];
+        p >> ret.num_votes;
         p.ignore(1, ch_delimiter);
-        p >> ret.votes;
+        p >> tbuff;
+        ret.timestamp = fc::time_point_sec::from_iso_string(std::string(tbuff, 19));
+        p.ignore(1, ch_delimiter);
+        p >> ret.secs_from_previous_post;
+        p.ignore(1, ch_delimiter);
+        p >> ret.total_weight;
         return ret;
     }
 
-    void calc_stat_payout_point(const int cseq,
-                                const stat_comment_data& stat_data,
-                                const share_type rshares,
-                                fc::uint128_t& total_claims,
-                                share_type& reward_fund,
-                                fc::time_point_sec& last_payout,
-                                author_rewards_type& rewards)
+    using stat_comment_data_vec = std::vector<stat_comment_data>;
+
+    void calc_stat_payout_points(const int cseq,
+                                 const int first_secs_from_previous_post,
+                                 const stat_comment_data_vec& comments_in_block,
+                                 const share_type rshares,
+                                 fc::uint128_t& total_claims,
+                                 share_type& reward_fund,
+                                 fc::time_point_sec& last_payout,
+                                 author_rewards_type& rewards,
+                                 const fc::microseconds& decay_rate = SCORUM_RECENT_RSHARES_DECAY_RATE)
     {
         fc::time_point_sec now = last_payout + SCORUM_BLOCK_INTERVAL;
 
-        int pass_blocks = stat_data.secs_from_prev / SCORUM_BLOCK_INTERVAL - 1;
-        int ci = 0;
-        for (; ci < pass_blocks; ++ci)
+        BOOST_REQUIRE_GT(decay_rate.to_seconds(), fc::hours(1).to_seconds());
+
+        int pass_blocks = first_secs_from_previous_post / SCORUM_BLOCK_INTERVAL - 1;
+        for (int ci = 0; ci < pass_blocks; ++ci)
         {
             process_per_block_without_cashout_comments(reward_sp_perblock.amount, reward_fund, total_claims, now,
-                                                       last_payout);
+                                                       last_payout, decay_rate);
         }
 
         process_per_block_without_cashout_comments(reward_sp_perblock.amount, reward_fund, total_claims, now,
-                                                   last_payout);
+                                                   last_payout, decay_rate);
 
-        auto payout = process_per_block_for_cashout_comments(rshares, reward_fund, total_claims);
+        shares_vector_type total_rshares(comments_in_block.size(), rshares);
+
+        total_claims = calculate_total_claims(total_claims, curve_id::linear, total_rshares);
+
+        share_type payout = calculate_payout(rshares, total_claims, reward_fund, curve_id::linear,
+                                             asset::maximum(SCORUM_SYMBOL).amount, SCORUM_MIN_COMMENT_PAYOUT_SHARE);
+
+        reward_fund -= payout * total_rshares.size();
+
         rewards.emplace_back(reward_fund, total_claims, payout, last_payout, cseq);
     }
 
-    void process_stat_file(const std::string& input_data_file, const std::string& output_result_file)
+    void process_stat_file(const std::string& input_data_file,
+                           const std::string& output_result_file,
+                           const int initial_total_claims_decay = 1,
+                           const fc::microseconds& decay_rate = SCORUM_RECENT_RSHARES_DECAY_RATE)
     {
+        BOOST_REQUIRE_GT(initial_total_claims_decay, 0);
+        BOOST_REQUIRE_GT(decay_rate.to_seconds(), fc::hours(1).to_seconds());
+
         share_type rshares = calculate_rshares_for_post(alice, { bob, sam });
 
         boost::filesystem::path path_to_input(input_data_file);
@@ -401,12 +431,13 @@ struct find_asymptote_fixture : public blogging_common_fixture
 
         total_claims
             = fc::uint128_t(reward_sp_perblock.amount.value * fc::days(70).to_seconds() / SCORUM_BLOCK_INTERVAL);
+        total_claims /= initial_total_claims_decay;
 
         int ci = 0;
         for (; ci < fc::days(7).to_seconds() / SCORUM_BLOCK_INTERVAL; ++ci)
         {
             process_per_block_without_cashout_comments(reward_sp_perblock.amount, reward_fund, total_claims, now,
-                                                       last_payout);
+                                                       last_payout, decay_rate);
         }
 
         author_rewards_type rewards;
@@ -428,20 +459,42 @@ struct find_asymptote_fixture : public blogging_common_fixture
             }
             in.push(fl_in);
 
-            int secs_from_prev = 0;
+            int secs_from_previous_post = 0;
+            int first_secs_from_previous_post = 0;
             int cseq = 0;
+            stat_comment_data_vec comments_in_block;
             for (std::string str; std::getline(in, str);)
             {
                 stat_comment_data stat = get_stat_data(str);
-                if (stat.votes < 1)
+                if (stat.total_weight < 1)
                 {
-                    secs_from_prev += stat.secs_from_prev;
+                    secs_from_previous_post += stat.secs_from_previous_post;
                     continue;
                 }
 
-                stat.secs_from_prev += secs_from_prev;
-                secs_from_prev = 0;
-                calc_stat_payout_point(++cseq, stat, rshares, total_claims, reward_fund, last_payout, rewards);
+                stat.secs_from_previous_post += secs_from_previous_post;
+                secs_from_previous_post = 0;
+
+                if (stat.secs_from_previous_post > 0 && !comments_in_block.empty())
+                {
+                    calc_stat_payout_points(++cseq, first_secs_from_previous_post, comments_in_block, rshares,
+                                            total_claims, reward_fund, last_payout, rewards, decay_rate);
+
+                    comments_in_block.clear();
+                }
+
+                if (stat.secs_from_previous_post > 0)
+                {
+                    first_secs_from_previous_post = stat.secs_from_previous_post;
+                }
+
+                comments_in_block.push_back(stat);
+            }
+
+            if (!comments_in_block.empty())
+            {
+                calc_stat_payout_points(++cseq, first_secs_from_previous_post, comments_in_block, rshares, total_claims,
+                                        reward_fund, last_payout, rewards, decay_rate);
             }
         }
         catch (const boost::iostreams::gzip_error& e)
@@ -468,6 +521,21 @@ struct find_asymptote_fixture : public blogging_common_fixture
         }
 
         fl_out.close();
+    }
+
+    std::string get_result_file_name(const std::string& dir_path,
+                                     const std::string& prefix,
+                                     const int initial_total_claims_decay,
+                                     const int& decay_rate_in_days)
+    {
+        std::stringstream ss;
+        ss << dir_path;
+        ss << "/";
+        ss << prefix;
+        ss << "_itc_" << initial_total_claims_decay;
+        ss << "_dd_" << decay_rate_in_days;
+        ss << ".csv";
+        return ss.str();
     }
 
     budget_service_i& budget_service;
@@ -503,60 +571,65 @@ BOOST_FIXTURE_TEST_SUITE(find_asymptote_tests, find_asymptote_fixture)
 //    plot_curve_of_voting_points(vote_period, max_iterations, 5);
 //}
 
-BOOST_AUTO_TEST_CASE(find_asymptote_in_payout_alg)
-{
-    // 1.5 year
-    const int max_iterations = fc::days(365 * 3 / 2).to_seconds() / SCORUM_BLOCK_INTERVAL;
-    // cashout each 30 minutes
-    const int comment_cashout_period = fc::minutes(10).to_seconds() / SCORUM_BLOCK_INTERVAL;
+// BOOST_AUTO_TEST_CASE(find_asymptote_in_payout_alg)
+//{
+//    // 1.5 year
+//    const int max_iterations = fc::days(365 * 3 / 2).to_seconds() / SCORUM_BLOCK_INTERVAL;
+//    // cashout each 30 minutes
+//    const int comment_cashout_period = fc::minutes(10).to_seconds() / SCORUM_BLOCK_INTERVAL;
 
-    share_type rshares = calculate_rshares_for_post(alice, { bob, sam });
+//    share_type rshares = calculate_rshares_for_post(alice, { bob, sam });
 
-    BOOST_REQUIRE_GT(rshares, share_type());
+//    BOOST_REQUIRE_GT(rshares, share_type());
 
-    plot_curve_of_payout_points(comment_cashout_period, max_iterations, rshares, 1);
-    plot_curve_of_payout_points(comment_cashout_period, max_iterations, rshares, 10);
-    plot_curve_of_payout_points(comment_cashout_period, max_iterations, rshares, 100);
-}
+//    plot_curve_of_payout_points(comment_cashout_period, max_iterations, rshares, 1);
+//    plot_curve_of_payout_points(comment_cashout_period, max_iterations, rshares, 10);
+//    plot_curve_of_payout_points(comment_cashout_period, max_iterations, rshares, 100);
+//}
 
-BOOST_AUTO_TEST_CASE(test_input_output)
-{
-    const std::string input_data_file = str_storage_root + "test_input_output_genered.csv";
-    const std::string output_result_file = str_storage_root + "test_input_output_result.csv";
+// BOOST_AUTO_TEST_CASE(test_input_output)
+//{
+//    const std::string input_data_file = str_storage_root + "test_input_output_genered.csv";
+//    const std::string output_result_file = str_storage_root + "test_input_output_result.csv";
 
-    // 1.5 year
-    const int max_iterations = fc::days(365 * 3 / 2).to_seconds() / SCORUM_BLOCK_INTERVAL;
-    // cashout each 30 minutes
-    const int comment_cashout_period = fc::minutes(10).to_seconds() / SCORUM_BLOCK_INTERVAL;
+//    // 1.5 year
+//    const int max_iterations = fc::days(365 * 3 / 2).to_seconds() / SCORUM_BLOCK_INTERVAL;
+//    // cashout each 30 minutes
+//    const int comment_cashout_period = fc::minutes(10).to_seconds() / SCORUM_BLOCK_INTERVAL;
 
-    boost::filesystem::ofstream fl_out;
-    fl_out.open(boost::filesystem::path(input_data_file).string(), std::ios_base::out);
+//    boost::filesystem::ofstream fl_out;
+//    fl_out.open(boost::filesystem::path(input_data_file).string(), std::ios_base::out);
 
-    int interval = 0;
-    for (int ci = 0; ci < max_iterations; ++ci)
-    {
-        if (ci % comment_cashout_period == 0)
-        {
-            fl_out << interval << ch_delimiter << 1 << pstr_endl;
-            interval = SCORUM_BLOCK_INTERVAL;
-        }
-        else
-        {
-            interval += SCORUM_BLOCK_INTERVAL;
-        }
-    }
+//    int interval = 0;
+//    for (int ci = 0; ci < max_iterations; ++ci)
+//    {
+//        if (ci % comment_cashout_period == 0)
+//        {
+//            fl_out << interval << ch_delimiter << 1 << pstr_endl;
+//            interval = SCORUM_BLOCK_INTERVAL;
+//        }
+//        else
+//        {
+//            interval += SCORUM_BLOCK_INTERVAL;
+//        }
+//    }
 
-    fl_out.close();
+//    fl_out.close();
 
-    process_stat_file(input_data_file, output_result_file);
-}
+//    process_stat_file(input_data_file, output_result_file);
+//}
 
 BOOST_AUTO_TEST_CASE(prediction_by_steemit_data)
 {
     const std::string input_data_file = str_storage_root + "prediction_by_steemit_data_steemit.csv";
-    const std::string output_result_file = str_storage_root + "prediction_by_steemit_data_result.csv";
+    const std::string output_result_file_prefix = "prediction_by_steemit_data_result";
 
-    process_stat_file(input_data_file, output_result_file);
+    process_stat_file(input_data_file, get_result_file_name(str_storage_root, output_result_file_prefix, 1, 15), 1,
+                      fc::days(15));
+    process_stat_file(input_data_file, get_result_file_name(str_storage_root, output_result_file_prefix, 10, 15), 10,
+                      fc::days(15));
+    process_stat_file(input_data_file, get_result_file_name(str_storage_root, output_result_file_prefix, 100, 15), 100,
+                      fc::days(15));
 }
 
 BOOST_AUTO_TEST_SUITE_END()
