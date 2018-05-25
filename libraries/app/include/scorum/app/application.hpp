@@ -71,7 +71,7 @@ public:
                              boost::program_options::options_description& configuration_file_options) const;
     void initialize(const boost::program_options::variables_map& options);
     void initialize_plugins(const boost::program_options::variables_map& options);
-    void startup();
+    bool startup();
     void shutdown();
     void startup_plugins();
     void shutdown_plugins();

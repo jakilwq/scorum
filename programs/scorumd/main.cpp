@@ -151,33 +151,36 @@ int main(int argc, char** argv)
         node->initialize_plugins(options);
 
         ilog("starting node");
-        node->startup();
-        ilog("starting plugins");
-        node->startup_plugins();
+        if (node->startup())
+        {
+            ilog("starting plugins");
+            node->startup_plugins();
 
-        fc::promise<int>::ptr exit_promise = new fc::promise<int>("UNIX Signal Handler");
+            fc::promise<int>::ptr exit_promise = new fc::promise<int>("UNIX Signal Handler");
 
-        fc::set_signal_handler(
-            [&exit_promise](int signal) {
-                elog("Caught SIGINT attempting to exit cleanly");
-                exit_promise->set_value(signal);
-            },
-            SIGINT);
+            fc::set_signal_handler(
+                [&exit_promise](int signal) {
+                    elog("Caught SIGINT attempting to exit cleanly");
+                    exit_promise->set_value(signal);
+                },
+                SIGINT);
 
-        fc::set_signal_handler(
-            [&exit_promise](int signal) {
-                elog("Caught SIGTERM attempting to exit cleanly");
-                exit_promise->set_value(signal);
-            },
-            SIGTERM);
+            fc::set_signal_handler(
+                [&exit_promise](int signal) {
+                    elog("Caught SIGTERM attempting to exit cleanly");
+                    exit_promise->set_value(signal);
+                },
+                SIGTERM);
 
-        node->chain_database()->with_read_lock([&]() {
-            ilog("Started node on a chain with ${h} blocks.", ("h", node->chain_database()->head_block_num()));
-        });
+            node->chain_database()->with_read_lock([&]() {
+                ilog("Started node on a chain with ${h} blocks.", ("h", node->chain_database()->head_block_num()));
+            });
 
-        std::cout << "Scorum network started.\n\n";
+            std::cout << "Scorum network started.\n\n";
 
-        exit_promise->wait();
+            exit_promise->wait();
+        }
+
         node->shutdown_plugins();
         node->shutdown();
         delete node;

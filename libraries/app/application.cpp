@@ -314,7 +314,7 @@ public:
         genesis_state.initial_chain_id = fc::sha256::hash(genesis_str);
     }
 
-    void startup()
+    bool startup()
     {
         try
         {
@@ -380,8 +380,9 @@ public:
                 {
                     try
                     {
-                        _chain_db->open(_data_dir / "blockchain", _shared_dir, _shared_file_size,
-                                        chainbase::database::read_write, genesis_state);
+                        if (!_chain_db->open(_data_dir / "blockchain", _shared_dir, _shared_file_size,
+                                             chainbase::database::read_write, genesis_state))
+                            return false;
                     }
                     catch (fc::assert_exception&)
                     {
@@ -394,8 +395,9 @@ public:
                         catch (chain::block_log_exception&)
                         {
                             wlog("Error opening block log. Having to resync from network...");
-                            _chain_db->open(_data_dir / "blockchain", _shared_dir, _shared_file_size,
-                                            chainbase::database::read_write, genesis_state);
+                            if (!_chain_db->open(_data_dir / "blockchain", _shared_dir, _shared_file_size,
+                                                 chainbase::database::read_write, genesis_state))
+                                return false;
                         }
                     }
                 }
@@ -409,8 +411,9 @@ public:
             else
             {
                 ilog("Starting Scorum node in read mode.");
-                _chain_db->open(_data_dir / "blockchain", _shared_dir, _shared_file_size,
-                                chainbase::database::read_only, genesis_state);
+                if (!_chain_db->open(_data_dir / "blockchain", _shared_dir, _shared_file_size,
+                                     chainbase::database::read_only, genesis_state))
+                    return false;
 
                 if (_options->count("read-forward-rpc"))
                 {
@@ -475,8 +478,10 @@ public:
 
             reset_websocket_server();
             reset_websocket_tls_server();
+            return true;
         }
         FC_LOG_AND_RETHROW()
+        return false;
     }
 
     optional<api_access_info> get_api_access_info(const std::string& username) const
@@ -1311,12 +1316,12 @@ void application::initialize(const boost::program_options::variables_map& option
     my->_options = &options;
 }
 
-void application::startup()
+bool application::startup()
 {
     try
     {
         _read_only = my->_options->count("read-only");
-        my->startup();
+        return my->startup();
     }
     catch (const fc::exception& e)
     {
@@ -1328,6 +1333,7 @@ void application::startup()
         elog("unexpected exception");
         throw;
     }
+    return false;
 }
 
 std::shared_ptr<abstract_plugin> application::get_plugin(const std::string& name) const

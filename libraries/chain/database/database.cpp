@@ -115,7 +115,7 @@ database::~database()
     clear_pending();
 }
 
-void database::open(const fc::path& data_dir,
+bool database::open(const fc::path& data_dir,
                     const fc::path& shared_mem_dir,
                     uint64_t shared_file_size,
                     uint32_t chainbase_flags,
@@ -127,6 +127,11 @@ void database::open(const fc::path& data_dir,
 
         // must be initialized before evaluators creation
         _my->_genesis_persistent_state = static_cast<const genesis_persistent_state_type&>(genesis_state);
+
+        size_t service_header = boost::interprocess::rbtree_best_fit<boost::interprocess::mutex_family>::Alignment;
+        std::cerr << "Segent file size: SZ = " << get_size() - service_header << " + " << service_header << std::endl;
+
+        return false;
 
         initialize_indexes();
         initialize_evaluators();
@@ -182,8 +187,12 @@ void database::open(const fc::path& data_dir,
         with_read_lock([&]() {
             init_hardforks(genesis_state.initial_timestamp); // Writes to local state, but reads from db
         });
+
+        return true;
     }
     FC_CAPTURE_LOG_AND_RETHROW((data_dir)(shared_mem_dir)(shared_file_size))
+
+    return false;
 }
 
 void database::reindex(const fc::path& data_dir,

@@ -97,7 +97,7 @@ public:
      *
      * @param data_dir Path to open or create database in
      */
-    void open(const fc::path& data_dir,
+    bool open(const fc::path& data_dir,
               const fc::path& shared_mem_dir,
               uint64_t shared_file_size,
               uint32_t chainbase_flags,
