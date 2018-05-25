@@ -7,6 +7,8 @@
 
 #include <chainbase/undo_session.hpp>
 
+#include <iostream>
+
 namespace chainbase {
 
 /**
@@ -349,6 +351,11 @@ private:
         {
             _stack.pop_front();
         }
+    }
+
+    void test_valid() override
+    {
+        std::cerr << __FUNCTION__ << ": " << _revision << std::endl;
     }
 
     /**

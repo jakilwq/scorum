@@ -123,18 +123,29 @@ bool database::open(const fc::path& data_dir,
 {
     try
     {
-        chainbase::database::open(shared_mem_dir, chainbase_flags, shared_file_size);
+        uint64_t shared_file_size_for_test = shared_file_size / 1024;
+
+        chainbase::database::open(shared_mem_dir, chainbase_flags, shared_file_size_for_test);
 
         // must be initialized before evaluators creation
         _my->_genesis_persistent_state = static_cast<const genesis_persistent_state_type&>(genesis_state);
 
         size_t service_header = boost::interprocess::rbtree_best_fit<boost::interprocess::mutex_family>::Alignment;
-        std::cerr << "Segent file size: SZ = " << get_size() - service_header << " + " << service_header << std::endl;
-
-        return false;
+        std::cerr << "Segent file. Requested size: " << shared_file_size_for_test
+                  << ", Actial data size: " << get_size() << " - " << service_header << std::endl;
 
         initialize_indexes();
         initialize_evaluators();
+
+        int cidx = 0;
+        with_write_lock([&]() {
+            for_each_index([&](chainbase::abstract_generic_index_i& item) {
+                if (cidx++ < 2)
+                    item.test_valid();
+            });
+        });
+
+        return false;
 
         if (chainbase_flags & chainbase::database::read_write)
         {
@@ -1132,10 +1143,13 @@ void database::initialize_evaluators()
     _my->_evaluator_registry.register_evaluator<registration_pool_evaluator>();
 }
 
-void database::initialize_indexes()
+bool database::initialize_indexes()
 {
     add_index<account_authority_index>();
     add_index<account_index>();
+
+    return false;
+
     add_index<account_registration_bonus_index>();
     add_index<account_blogging_statistic_index>();
     add_index<account_recovery_request_index>();
@@ -1178,6 +1192,8 @@ void database::initialize_indexes()
     add_index<witness_reward_in_sp_migration_index>();
 
     _plugin_index_signal();
+
+    return true;
 }
 
 void database::validate_transaction(const signed_transaction& trx)

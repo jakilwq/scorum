@@ -282,7 +282,7 @@ public:
     void initialize_evaluators();
 
     /// Reset the object graph in-memory
-    void initialize_indexes();
+    bool initialize_indexes();
 
     void init_genesis(const genesis_state_type& genesis_state);
 

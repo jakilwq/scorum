@@ -30,5 +30,7 @@ struct abstract_generic_index_i
     virtual void undo_all() = 0;
     virtual void squash() = 0;
     virtual void commit(int64_t revision) = 0;
+
+    virtual void test_valid() = 0;
 };
 }
