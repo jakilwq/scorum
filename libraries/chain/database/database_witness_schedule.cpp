@@ -369,33 +369,42 @@ void database::_update_witness_median_props()
 
     const witness_schedule_object& wso = _db.obtain_service<dbs_witness_schedule>().get();
 
+    auto& witness_service = _db.obtain_service<dbs_witness>();
+
     /// fetch all witness objects
     std::vector<const witness_object*> active;
     active.reserve(wso.num_scheduled_witnesses);
-    for (int i = 0; i < wso.num_scheduled_witnesses; i++)
+    for (size_t i = 0; i < wso.num_scheduled_witnesses; i++)
     {
-        active.push_back(&_db.get_witness(wso.current_shuffled_witnesses[i]));
+        active.push_back(&witness_service.get(wso.current_shuffled_witnesses[i]));
     }
 
     /// sort them by account_creation_fee
     std::sort(active.begin(), active.end(), [&](const witness_object* a, const witness_object* b) {
-        return a->props.account_creation_fee.amount < b->props.account_creation_fee.amount;
+        return a->proposed_chain_props.account_creation_fee.amount < b->proposed_chain_props.account_creation_fee.amount;
     });
-    asset median_account_creation_fee = active[active.size() / 2]->props.account_creation_fee;
+
+    asset median_account_creation_fee = active[active.size() / 2]->proposed_chain_props.account_creation_fee;
 
     /// sort them by maximum_block_size
     std::sort(active.begin(), active.end(), [&](const witness_object* a, const witness_object* b) {
-        return a->props.maximum_block_size < b->props.maximum_block_size;
-    });
-    uint32_t median_maximum_block_size = active[active.size() / 2]->props.maximum_block_size;
-
-    _db.modify(wso, [&](witness_schedule_object& _wso) {
-        _wso.median_props.account_creation_fee = median_account_creation_fee;
-        _wso.median_props.maximum_block_size = median_maximum_block_size;
+        return a->proposed_chain_props.maximum_block_size < b->proposed_chain_props.maximum_block_size;
     });
 
-    _db.modify(_db.get_dynamic_global_properties(),
-               [&](dynamic_global_property_object& _dgpo) { _dgpo.maximum_block_size = median_maximum_block_size; });
+    uint32_t median_maximum_block_size = active[active.size() / 2]->proposed_chain_props.maximum_block_size;
+
+    _db.obtain_service<dbs_dynamic_global_property>().update([&](dynamic_global_property_object& _dgpo) {
+        _dgpo.median_chain_props.account_creation_fee = median_account_creation_fee;
+        _dgpo.median_chain_props.maximum_block_size = median_maximum_block_size;
+    });
+//    _db.modify(wso, [&](witness_schedule_object& _wso) {
+//        _wso.median_props.account_creation_fee = median_account_creation_fee;
+//        _wso.median_props.maximum_block_size = median_maximum_block_size;
+//    });
+
+//    _db.modify(_db.get_dynamic_global_properties(), [&](dynamic_global_property_object& _dgpo) {
+//        _dgpo.maximum_block_size = median_maximum_block_size;
+//    });
 }
 
 /**
@@ -408,9 +417,13 @@ void database::update_witness_schedule()
 
     database& _db = (*this);
 
+    auto& witness_service = _db.obtain_service<dbs_witness>();
+
     if ((_db.head_block_num() % SCORUM_MAX_WITNESSES) == 0)
     {
-        const witness_schedule_object& wso = _db.get_witness_schedule_object();
+        const witness_schedule_object& wso = _db.obtain_service<dbs_witness_schedule>().get();
+
+
         std::vector<account_name_type> active_witnesses;
         active_witnesses.reserve(SCORUM_MAX_WITNESSES);
 
@@ -472,7 +485,7 @@ void database::update_witness_schedule()
         if (reset_virtual_time)
         {
             new_virtual_time = fc::uint128();
-            reset_virtual_schedule_time();
+            _reset_witness_virtual_schedule_time();
         }
 
         size_t expected_active_witnesses = std::min(size_t(SCORUM_MAX_WITNESSES), widx.size());
@@ -483,14 +496,16 @@ void database::update_witness_schedule()
                     ("active_witnesses", active_witnesses.size())
                     ("expected_active_witnesses", expected_active_witnesses));
 
-        auto majority_version = wso.majority_version;
+        auto majority_version = _db.obtain_service<dbs_dynamic_global_property>().get().majority_version;
+//        auto majority_version = wso.majority_version;
 
         flat_map<version, uint32_t, std::greater<version>> witness_versions;
         flat_map<std::tuple<hardfork_version, time_point_sec>, uint32_t> hardfork_version_votes;
 
         for (uint32_t i = 0; i < wso.num_scheduled_witnesses; i++)
         {
-            auto witness = _db.get_witness(wso.current_shuffled_witnesses[i]);
+            auto witness = witness_service.get(wso.current_shuffled_witnesses[i]);
+
             if (witness_versions.find(witness.running_version) == witness_versions.end())
             {
                 witness_versions[witness.running_version] = 1;
@@ -519,7 +534,8 @@ void database::update_witness_schedule()
         {
             witnesses_on_version += ver_itr->second;
 
-            if (witnesses_on_version >= wso.hardfork_required_witnesses)
+//            if (witnesses_on_version >= wso.hardfork_required_witnesses)
+            if (witnesses_on_version >= SCORUM_HARDFORK_REQUIRED_WITNESSES)
             {
                 majority_version = ver_itr->first;
                 break;
@@ -530,9 +546,11 @@ void database::update_witness_schedule()
 
         while (hf_itr != hardfork_version_votes.end())
         {
-            if (hf_itr->second >= wso.hardfork_required_witnesses)
+//            if (hf_itr->second >= wso.hardfork_required_witnesses)
+            if (hf_itr->second >= SCORUM_HARDFORK_REQUIRED_WITNESSES)
             {
-                const auto& hfp = _db.get_hardfork_property_object();
+//                const auto& hfp = _db.get_hardfork_property_object();
+                const auto& hfp = _db.obtain_service<dbs_hardfork_property>().get();
                 if (hfp.next_hardfork != std::get<0>(hf_itr->first)
                     || hfp.next_hardfork_time != std::get<1>(hf_itr->first))
                 {
@@ -551,8 +569,9 @@ void database::update_witness_schedule()
         // We no longer have a majority
         if (hf_itr == hardfork_version_votes.end())
         {
-            _db.modify(_db.get_hardfork_property_object(),
-                       [&](hardfork_property_object& hpo) { hpo.next_hardfork = hpo.current_hardfork_version; });
+            _db.modify(_db.obtain_service<dbs_hardfork_property>().get(), [&](hardfork_property_object& hpo) {
+                hpo.next_hardfork = hpo.current_hardfork_version;
+            });
         }
 
         _db.modify(wso, [&](witness_schedule_object& _wso) {
@@ -586,8 +605,12 @@ void database::update_witness_schedule()
             }
 
             _wso.current_virtual_time = new_virtual_time;
-            _wso.next_shuffle_block_num = _db.head_block_num() + _wso.num_scheduled_witnesses;
-            _wso.majority_version = majority_version;
+//            _wso.next_shuffle_block_num = _db.head_block_num() + _wso.num_scheduled_witnesses;
+
+            _db.obtain_service<dbs_dynamic_global_property>().update([&](dynamic_global_property_object& dprop){
+                dprop.majority_version = majority_version;
+            });
+//            _wso.majority_version = majority_version;
         });
 
         _update_witness_median_props();
