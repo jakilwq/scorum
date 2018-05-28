@@ -58,6 +58,8 @@ void database::update_witness_schedule()
 
     if ((_db.head_block_num() % SCORUM_MAX_WITNESSES) == 0)
     {
+        fc_ilog(fc::logger::get("dbg"), "head_block_num=${head_block_num}", ("head_block_num", _db.head_block_num()));
+
         auto& schedule_service = _db.obtain_service<dbs_witness_schedule>();
         auto& witness_service = _db.obtain_service<dbs_witness>();
 
@@ -75,6 +77,8 @@ void database::update_witness_schedule()
             {
                 continue;
             }
+
+            fc_ilog(fc::logger::get("dbg"), "active=${active}", ("active", *itr));
 
             FC_ASSERT(active_witnesses.insert(std::make_pair(itr->id, itr->owner)).second);
             _db.modify(*itr, [&](witness_object& wo) { wo.schedule = witness_object::top20; });
@@ -101,6 +105,8 @@ void database::update_witness_schedule()
             {
                 FC_ASSERT(active_witnesses.insert(std::make_pair(sitr->id, sitr->owner)).second);
                 _db.modify(*sitr, [&](witness_object& wo) { wo.schedule = witness_object::timeshare; });
+
+                fc_ilog(fc::logger::get("dbg"), "runner=${runner}", ("runner", *sitr));
             }
         }
 
@@ -117,20 +123,20 @@ void database::update_witness_schedule()
                 /// overflow, reset virtual time
                 new_virtual_time = fc::uint128();
                 _reset_witness_virtual_schedule_time();
+
                 break;
             }
             _db.modify(*(*itr), [&](witness_object& wo) {
                 wo.virtual_position = fc::uint128();
                 wo.virtual_last_update = new_virtual_time;
                 wo.virtual_scheduled_time = new_virtual_scheduled_time;
+
+                fc_ilog(fc::logger::get("dbg"), "update_wo=${wo}", ("wo", wo));
             });
         }
 
-        witness_schedule::printable_schedule prev_schedule;
-        if (fc::logger::get(DEFAULT_LOGGER).is_enabled(fc::log_level::debug))
-        {
-            prev_schedule = witness_schedule::get_witness_schedule(schedule_service.get(), witness_service);
-        }
+        fc_ilog(fc::logger::get("dbg"), "prev_schedule=${schedule}",
+                ("schedule", witness_schedule::get_witness_schedule(schedule_service.get(), witness_service)));
 
         schedule_service.update([&](witness_schedule_object& _wso) {
             for (size_t i = 0; i < active_witnesses.size(); i++)
@@ -147,6 +153,12 @@ void database::update_witness_schedule()
 
             /// shuffle current shuffled witnesses
             auto now_hi = uint64_t(_db.head_block_time().sec_since_epoch()) << 32;
+
+            fc_ilog(fc::logger::get("dbg"), "now_hi=${now_hi}", ("now_hi", now_hi));
+
+            fc_ilog(fc::logger::get("dbg"), "before_shufle=${schedule}",
+                    ("schedule", witness_schedule::get_witness_schedule(schedule_service.get(), witness_service)));
+
             for (uint32_t i = 0; i < _wso.num_scheduled_witnesses; ++i)
             {
                 /// High performance random generator
@@ -165,9 +177,8 @@ void database::update_witness_schedule()
             _wso.current_virtual_time = new_virtual_time;
         });
 
-        dlog("{\"prev_schedule\": ${prev_schedule}, \"new_schedule\": ${new_schedule}}",
-             ("prev_schedule", prev_schedule)(
-                 "new_schedule", witness_schedule::get_witness_schedule(schedule_service.get(), witness_service)));
+        fc_ilog(fc::logger::get("dbg"), "new_schedule=${schedule}",
+                ("schedule", witness_schedule::get_witness_schedule(schedule_service.get(), witness_service)));
 
         _update_witness_majority_version();
         _update_witness_hardfork_version_votes();
@@ -177,6 +188,8 @@ void database::update_witness_schedule()
 
 void database::_reset_witness_virtual_schedule_time()
 {
+    fc_ilog(fc::logger::get("dbg"), "_reset_witness_virtual_schedule_time");
+
     database& _db = (*this);
 
     auto& schedule_service = _db.obtain_service<dbs_witness_schedule>();
@@ -194,6 +207,8 @@ void database::_reset_witness_virtual_schedule_time()
             wobj.virtual_position = fc::uint128();
             wobj.virtual_last_update = wso.current_virtual_time;
             wobj.virtual_scheduled_time = VIRTUAL_SCHEDULE_LAP_LENGTH / (wobj.votes.value + 1);
+
+            fc_ilog(fc::logger::get("dbg"), "wobj=${wobj}", ("wobj", wobj));
         });
     }
 }
@@ -201,6 +216,8 @@ void database::_reset_witness_virtual_schedule_time()
 void database::_update_witness_median_props()
 {
     // clang-format off
+
+    fc_ilog(fc::logger::get("dbg"), "_update_witness_median_props");
 
     database& _db = (*this);
 
