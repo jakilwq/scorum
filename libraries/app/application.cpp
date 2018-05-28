@@ -479,6 +479,11 @@ public:
         FC_LOG_AND_RETHROW()
     }
 
+    void snapshot()
+    {
+        return _chain_db->schedule_snapshot_task();
+    }
+
     optional<api_access_info> get_api_access_info(const std::string& username) const
     {
         optional<api_access_info> result;
@@ -1328,6 +1333,11 @@ void application::startup()
         elog("unexpected exception");
         throw;
     }
+}
+
+void application::snapshot()
+{
+    my->snapshot();
 }
 
 std::shared_ptr<abstract_plugin> application::get_plugin(const std::string& name) const

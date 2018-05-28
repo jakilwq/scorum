@@ -26,6 +26,11 @@ using namespace scorum;
 using scorum::protocol::version;
 namespace bpo = boost::program_options;
 
+void wait_snapshot_command(app::application* node)
+{
+    fc::set_signal_handler([&node](int) { node->snapshot(); }, SIGUSR1);
+}
+
 void wait_stop()
 {
     fc::promise<int>::ptr exit_promise = new fc::promise<int>("UNIX Signal Handler");

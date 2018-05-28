@@ -57,6 +57,7 @@ add_library( scorum_chain
              services/genesis_state.cpp
              services/account_registration_bonus.cpp
              services/blocks_story.cpp
+             services/snapshot.cpp
 
              data_service_factory.cpp
 
@@ -98,6 +99,7 @@ add_library( scorum_chain
              database/block_tasks/process_fifa_world_cup_2018_bounty_initialize.cpp
              database/block_tasks/process_account_registration_bonus_expiration.cpp
              database/block_tasks/process_witness_reward_in_sp_migration.cpp
+             database/block_tasks/make_scheduled_snapshot.cpp
 
              database/process_user_activity.cpp
 

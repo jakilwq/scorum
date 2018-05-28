@@ -123,6 +123,18 @@ public:
     void wipe(const fc::path& data_dir, const fc::path& shared_mem_dir, bool include_blocks);
     void close();
 
+    void set_snapshot_dir(const fc::path& dir);
+    void schedule_snapshot_task();
+    fc::path snapshot_dir() const
+    {
+        return _snapshot_dir;
+    }
+    bool is_snapshot_scheduled() const
+    {
+        return _do_snapshot;
+    }
+    void clear_snapshot_schedule();
+
     time_point_sec get_genesis_time() const;
 
     //////////////////// db_block.cpp ////////////////////
@@ -395,6 +407,9 @@ private:
     uint32_t _last_free_gb_printed = 0;
 
     fc::time_point_sec _const_genesis_time; // should be const
+
+    fc::path _snapshot_dir;
+    bool _do_snapshot = false;
 };
 } // namespace chain
 } // namespace scorum
