@@ -21,6 +21,15 @@ void block_task_context::push_virtual_operation(const operation& op)
     _vops.push_virtual_operation(op);
 }
 
+void block_task_context::save_snapshot(std::ofstream& fs)
+{
+    _vops.save_snapshot(fs);
+}
+void block_task_context::load_snapshot(std::ifstream& fs)
+{
+    _vops.load_snapshot(fs);
+}
+
 } // database_ns
 }
 }

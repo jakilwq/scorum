@@ -63,7 +63,7 @@
 #include <scorum/chain/database/block_tasks/process_contracts_expiration.hpp>
 #include <scorum/chain/database/block_tasks/process_account_registration_bonus_expiration.hpp>
 #include <scorum/chain/database/block_tasks/process_witness_reward_in_sp_migration.hpp>
-#include <scorum/chain/database/block_tasks/make_scheduled_snapshot.hpp>
+#include <scorum/chain/database/scheduled_snapshot.hpp>
 #include <scorum/chain/database/process_user_activity.hpp>
 
 #include <scorum/chain/evaluators/evaluator_registry.hpp>
@@ -94,7 +94,6 @@ public:
     database_ns::process_contracts_expiration _process_contracts_expiration;
     database_ns::process_account_registration_bonus_expiration _process_account_registration_bonus_expiration;
     database_ns::process_witness_reward_in_sp_migration _process_witness_reward_in_sp_migration;
-    database_ns::make_scheduled_snapshot _make_scheduled_snapshot;
 };
 
 database_impl::database_impl(database& self)
@@ -918,6 +917,16 @@ inline void database::push_virtual_operation(const operation& op)
     }
 }
 
+void database::save_snapshot(std::ofstream& fs)
+{
+    SCORUM_TRY_NOTIFY(save_snapshot_signal, fs);
+}
+
+void database::load_snapshot(std::ifstream& fs)
+{
+    SCORUM_TRY_NOTIFY(load_snapshot_signal, fs);
+}
+
 inline void database::push_hf_operation(const operation& op)
 {
     FC_ASSERT(is_virtual_operation(op));
@@ -1417,7 +1426,7 @@ void database::_apply_block(const signed_block& next_block)
         // notify observers that the block has been applied
         notify_applied_block(next_block);
 
-        _my->_make_scheduled_snapshot.apply(ctx);
+        database_ns::make_scheduled_snapshot(*this).apply(ctx);
     }
     FC_CAPTURE_LOG_AND_RETHROW((next_block.block_num()))
 }

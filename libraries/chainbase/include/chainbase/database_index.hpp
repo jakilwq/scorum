@@ -6,7 +6,11 @@
 #include <chainbase/database_guard.hpp>
 #include <chainbase/generic_index.hpp>
 
+#include <scorum/typeid/get_types.hpp>
+
 namespace chainbase {
+
+using scorum::get_index_type;
 
 /**
 *  This class

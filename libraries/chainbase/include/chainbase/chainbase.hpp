@@ -3,11 +3,11 @@
 #include <boost/filesystem.hpp>
 #include <boost/interprocess/sync/file_lock.hpp>
 
-#include <chainbase/undo_db_state.hpp>
+#include <chainbase/db_state.hpp>
 
 namespace chainbase {
 
-class database : public undo_db_state
+class database : public db_state
 {
     boost::interprocess::file_lock _flock;
 

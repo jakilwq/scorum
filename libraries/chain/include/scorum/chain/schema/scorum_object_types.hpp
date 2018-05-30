@@ -14,6 +14,10 @@
 #include <scorum/protocol/asset.hpp>
 #include <scorum/protocol/authority.hpp>
 
+#include <scorum/typeid/get_types.hpp>
+
+#include <map>
+
 namespace scorum {
 namespace chain {
 
@@ -39,7 +43,6 @@ enum object_type
     account_blogging_statistic_object_type,
     account_recovery_request_object_type,
     atomicswap_contract_object_type,
-    block_stats_object_type,
     block_summary_object_type,
     budget_object_type,
     chain_property_object_type,
@@ -59,7 +62,7 @@ enum object_type
     registration_pool_object_type,
     content_reward_fund_scr_object_type,
     content_reward_fund_sp_object_type,
-    content_fifa_world_cup_2018_bounty_reward_fund_type,
+    content_fifa_world_cup_2018_bounty_reward_fund_object_type,
     content_reward_balancer_scr_object_type,
     voters_reward_balancer_scr_object_type,
     voters_reward_balancer_sp_object_type,
@@ -155,18 +158,16 @@ enum bandwidth_type
     forum, ///< Rate limiting for all forum related actions
     market ///< Rate limiting for all other actions
 };
-} // namespace chain
-} // namespace scorum
+}
+}
 
 // clang-format off
-
 FC_REFLECT_ENUM(scorum::chain::object_type,
                 (account_authority_object_type)
                 (account_object_type)
                 (account_blogging_statistic_object_type)
                 (account_recovery_request_object_type)
                 (atomicswap_contract_object_type)
-                (block_stats_object_type)
                 (block_summary_object_type)
                 (budget_object_type)
                 (chain_property_object_type)
@@ -186,7 +187,7 @@ FC_REFLECT_ENUM(scorum::chain::object_type,
                 (registration_pool_object_type)
                 (content_reward_fund_scr_object_type)
                 (content_reward_fund_sp_object_type)
-                (content_fifa_world_cup_2018_bounty_reward_fund_type)
+                (content_fifa_world_cup_2018_bounty_reward_fund_object_type)
                 (content_reward_balancer_scr_object_type)
                 (voters_reward_balancer_scr_object_type)
                 (voters_reward_balancer_sp_object_type)
