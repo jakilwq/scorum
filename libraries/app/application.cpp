@@ -378,15 +378,30 @@ public:
                 }
                 _chain_db->add_checkpoints(loaded_checkpoints);
 
+                if (_options->count("snapshot-save-dir"))
+                {
+                    fc::path snapshot_dir = fc::path(_options->at("snapshot-save-dir").as<boost::filesystem::path>());
+                    snapshot_dir = boost::filesystem::absolute(snapshot_dir);
+                    _chain_db->set_snapshot_dir(snapshot_dir);
+                }
+
                 if (_options->count("replay-blockchain") && !_options->count("resync-blockchain"))
                 {
                     ilog("Replaying blockchain on user request.");
+
+                    fc::path snapshot_file;
+                    if (_options->count("replay-snapshot-file"))
+                    {
+                        snapshot_file = fc::path(_options->at("replay-snapshot-file").as<boost::filesystem::path>());
+                        snapshot_file = boost::filesystem::absolute(snapshot_file);
+                    }
 
                     uint32_t skip_flags = _chain_db->get_reindex_skip_flags();
                     if (!_options->at("replay-skip-witness-schedule-check").as<bool>())
                         skip_flags &= ~database::skip_witness_schedule_check;
 
-                    _chain_db->reindex(block_log_dir, _shared_dir, _shared_file_size, skip_flags, genesis_state);
+                    _chain_db->reindex(block_log_dir, _shared_dir, _shared_file_size, skip_flags, genesis_state,
+                                       snapshot_file);
                 }
                 else
                 {
@@ -1180,6 +1195,8 @@ void application::set_program_options(boost::program_options::options_descriptio
     ("max-block-age", bpo::value< int32_t >()->default_value(200), "Maximum age of head block when broadcasting tx via API")
     ("flush", bpo::value< uint32_t >()->default_value(100000), "Flush shared memory file to disk this many blocks")
     ("genesis-json,g", bpo::value<boost::filesystem::path>(), "File to read genesis state from")
+    ("snapshot-save-dir", bpo::value<boost::filesystem::path>(), "Directory for snapshots saving. Defaults data_dir")
+    ("replay-snapshot-file", bpo::value<boost::filesystem::path>(), "File with snapshot to load")
     ("replay-blockchain", "Rebuild object graph by replaying all blocks")
     ("replay-skip-witness-schedule-check", bpo::value<bool>()->default_value(true), "Skip witness schedule check wile block replaying")
     ("resync-blockchain", "Delete all blocks and re-sync with network from scratch")

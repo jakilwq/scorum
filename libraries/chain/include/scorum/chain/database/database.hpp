@@ -117,7 +117,8 @@ public:
                  const fc::path& shared_mem_dir,
                  uint64_t shared_file_size,
                  uint32_t skip_flags,
-                 const genesis_state_type& genesis_state);
+                 const genesis_state_type& genesis_state,
+                 const fc::path& snapshot_file = fc::path());
 
     /**
      * @brief wipe Delete database from disk, and potentially the raw chain as well.
@@ -130,6 +131,7 @@ public:
     void close();
 
     void set_snapshot_dir(const fc::path& dir);
+    bool is_snapshot_available() const;
     void schedule_snapshot_task();
     fc::path snapshot_dir() const
     {
@@ -137,7 +139,7 @@ public:
     }
     bool is_snapshot_scheduled() const
     {
-        return _do_snapshot;
+        return is_snapshot_available() && _do_snapshot;
     }
     void clear_snapshot_schedule();
 

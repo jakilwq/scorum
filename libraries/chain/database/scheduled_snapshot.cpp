@@ -122,7 +122,20 @@ public:
         snapshot_stream.close();
     }
 
-    block_id_type load_snapshot(const fc::path& snapshot_path, database_virtual_operations_emmiter_i& vops)
+    block_id_type load_snapshot_header(const fc::path& snapshot_path)
+    {
+        std::ifstream snapshot_stream;
+        snapshot_stream.open(snapshot_path.generic_string(), std::ios::binary);
+
+        block_id_type snapshot_block_id;
+        fc::raw::unpack(snapshot_stream, snapshot_block_id);
+
+        snapshot_stream.close();
+
+        return snapshot_block_id;
+    }
+
+    void load_snapshot(const fc::path& snapshot_path, database_virtual_operations_emmiter_i& vops)
     {
         std::ifstream snapshot_stream;
         snapshot_stream.open(snapshot_path.generic_string(), std::ios::binary);
@@ -146,8 +159,6 @@ public:
 
         vops.load_snapshot(snapshot_stream);
         snapshot_stream.close();
-
-        return snapshot_block_id;
     }
 
 private:
@@ -188,9 +199,14 @@ load_scheduled_snapshot::~load_scheduled_snapshot()
 {
 }
 
-block_id_type load_scheduled_snapshot::load(const fc::path& snapshot_path)
+block_id_type load_scheduled_snapshot::load_header(const fc::path& snapshot_path)
 {
-    return _impl->load_snapshot(snapshot_path, static_cast<database_virtual_operations_emmiter_i&>(_db));
+    return _impl->load_snapshot_header(snapshot_path);
+}
+
+void load_scheduled_snapshot::load(const fc::path& snapshot_path)
+{
+    _impl->load_snapshot(snapshot_path, static_cast<database_virtual_operations_emmiter_i&>(_db));
 }
 }
 }

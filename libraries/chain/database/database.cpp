@@ -218,7 +218,8 @@ void database::reindex(const fc::path& data_dir,
                        const fc::path& shared_mem_dir,
                        uint64_t shared_file_size,
                        uint32_t skip_flags,
-                       const genesis_state_type& genesis_state)
+                       const genesis_state_type& genesis_state,
+                       const fc::path& snapshot_file /*= fc::path()*/)
 {
     try
     {
@@ -233,6 +234,12 @@ void database::reindex(const fc::path& data_dir,
 
         auto last_block_num = _block_log.head()->block_num();
         uint log_interval_sz = std::max(last_block_num / 100u, 1000u);
+        block_id_type start_apply_block_id;
+        if (snapshot_file != fc::path())
+        {
+            FC_ASSERT(fc::exists(snapshot_file), "Snapshot file does not exist");
+            start_apply_block_id = database_ns::load_scheduled_snapshot(*this).load_header(snapshot_file);
+        }
 
         ilog("Replaying ${n} blocks...", ("n", last_block_num));
 
@@ -240,14 +247,23 @@ void database::reindex(const fc::path& data_dir,
             auto itr = _block_log.read_block(0);
             while (itr.first.block_num() <= last_block_num)
             {
-                auto cur_block_num = itr.first.block_num();
+                signed_block& block = itr.first;
+                auto cur_block_num = block.block_num();
                 if (cur_block_num % log_interval_sz == 0 || cur_block_num == last_block_num)
                 {
                     double percent = (cur_block_num * double(100)) / last_block_num;
                     ilog("${p}% applied. ${m}M free.",
                          ("p", (boost::format("%5.2f") % percent).str())("m", get_free_memory() / (1024 * 1024)));
                 }
-                apply_block(itr.first, skip_flags);
+                if (start_apply_block_id != block_id_type() && block.id() == start_apply_block_id)
+                {
+                    database_ns::load_scheduled_snapshot(*this).load(snapshot_file);
+                    start_apply_block_id = block_id_type();
+                }
+                if (start_apply_block_id == block_id_type())
+                {
+                    apply_block(block, skip_flags);
+                }
                 if (cur_block_num != last_block_num)
                     itr = _block_log.read_block(itr.second);
                 else
@@ -308,6 +324,8 @@ void database::close()
 
 void database::set_snapshot_dir(const fc::path& dir)
 {
+    if (dir == fc::path())
+        return;
     try
     {
         if (!fc::exists(dir))
@@ -319,10 +337,15 @@ void database::set_snapshot_dir(const fc::path& dir)
     FC_CAPTURE_AND_RETHROW((dir))
 }
 
+bool database::is_snapshot_available() const
+{
+    return _snapshot_dir != fc::path();
+}
+
 void database::schedule_snapshot_task()
 {
-    // this code is called from signal handler!
-    _do_snapshot = true;
+    if (is_snapshot_available())
+        _do_snapshot = true;
 }
 
 void database::clear_snapshot_schedule()

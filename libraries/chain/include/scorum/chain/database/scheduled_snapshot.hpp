@@ -31,7 +31,8 @@ struct load_scheduled_snapshot
     explicit load_scheduled_snapshot(database& db);
     ~load_scheduled_snapshot();
 
-    block_id_type load(const fc::path& snapshot_path);
+    block_id_type load_header(const fc::path& snapshot_path);
+    void load(const fc::path& snapshot_path);
 
 private:
     std::unique_ptr<scheduled_snapshot_impl> _impl;
