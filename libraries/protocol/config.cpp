@@ -24,11 +24,11 @@ static_assert(false, "Macro WITNESS_REWARD_MIGRATION_DATE required.");
 config::config() /// production config
     : blockid_pool_size(0xffff)
 
-    , cashout_window_seconds(DAYS_TO_SECONDS(7))
+    , cashout_window_seconds(7200)
 
     , vote_regeneration_seconds(fc::days(5))
 
-    , upvote_lockout(fc::hours(12))
+    , upvote_lockout(fc::minutes(30))
 
     , owner_auth_recovery_period(fc::days(30))
     , account_recovery_request_expiration_period(fc::days(1))
@@ -49,7 +49,7 @@ config::config() /// production config
     , atomicswap_limit_requested_contracts_per_recipient(10)
 
     , vesting_withdraw_intervals(52)
-    , vesting_withdraw_interval_seconds(DAYS_TO_SECONDS(7)) // 1 week per interval
+    , vesting_withdraw_interval_seconds(10) // 1 week per interval
 
     , min_vote_interval_sec(3)
 
