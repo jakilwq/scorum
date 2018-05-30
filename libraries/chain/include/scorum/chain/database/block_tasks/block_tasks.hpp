@@ -19,8 +19,8 @@ public:
                                 uint32_t block_num);
 
     virtual void push_virtual_operation(const operation& op);
-    virtual void save_snapshot(std::ofstream&);
-    virtual void load_snapshot(std::ifstream&);
+    virtual void notify_save_snapshot(std::ofstream&);
+    virtual void notify_load_snapshot(std::ifstream&);
 
     data_service_factory_i& services() const
     {

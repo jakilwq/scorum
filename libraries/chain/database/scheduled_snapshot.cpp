@@ -6,78 +6,23 @@
 #include <scorum/chain/services/dynamic_global_property.hpp>
 #include <scorum/chain/services/snapshot.hpp>
 
-#include <scorum/chain/database/snapshot_types.hpp>
-
 #include <string>
 #include <sstream>
 #include <fstream>
 
 #include <fc/io/raw.hpp>
-#include <fc/crypto/ripemd160.hpp>
+
+#include <scorum/snapshot/loader.hpp>
+#include <scorum/snapshot/saver.hpp>
+#include <scorum/chain/database/snapshot_types.hpp>
 
 namespace scorum {
 namespace chain {
 namespace database_ns {
 
 using db_state = chainbase::db_state;
-
-class save_index_visitor
-{
-public:
-    using result_type = void;
-
-    save_index_visitor(std::ofstream& fstream, db_state& state)
-        : _fstream(fstream)
-        , _state(state)
-    {
-    }
-
-    template <class T> void operator()(const T&) const
-    {
-        using object_type = typename T::type;
-        const auto& index = _state.template get_index<typename chainbase::get_index_type<object_type>::type>()
-                                .indices()
-                                .template get<by_id>();
-        fc::raw::pack(_fstream, index.size());
-        for (auto itr = index.begin(); itr != index.end(); ++itr)
-        {
-            const object_type& obj = (*itr);
-            fc::raw::pack(_fstream, obj);
-        }
-    }
-
-private:
-    std::ofstream& _fstream;
-    db_state& _state;
-};
-
-class load_index_visitor
-{
-public:
-    using result_type = void;
-
-    load_index_visitor(std::ifstream& fstream, db_state& state)
-        : _fstream(fstream)
-        , _state(state)
-    {
-    }
-
-    template <class T> void operator()(const T&) const
-    {
-        using object_type = typename T::type;
-        FC_ASSERT(_state.template find<object_type>() == nullptr, "State is not empty");
-        size_t sz = 0;
-        fc::raw::unpack(_fstream, sz);
-        for (size_t ci = 0; ci < sz; ++ci)
-        {
-            _state.template create<object_type>([&](object_type& obj) { fc::raw::unpack(_fstream, obj); });
-        }
-    }
-
-private:
-    std::ifstream& _fstream;
-    db_state& _state;
-};
+using scorum::snapshot::base_section;
+using scorum::chain::by_id;
 
 class scheduled_snapshot_impl
 {
@@ -99,7 +44,7 @@ public:
         return snapshot_dir / snapshot_name.str();
     }
 
-    void save_snapshot(const fc::path& snapshot_path, database_virtual_operations_emmiter_i& vops)
+    void save(const fc::path& snapshot_path, database_virtual_operations_emmiter_i& vops)
     {
         fc::remove_all(snapshot_path);
 
@@ -109,20 +54,13 @@ public:
         block_id_type snapshot_block_id = dprops_service.get().head_block_id;
         fc::raw::pack(snapshot_stream, snapshot_block_id);
 
-        fc::ripemd160::encoder check_enc;
-        fc::raw::pack(check_enc, scorum::get_extraction_section().name);
-        fc::raw::pack(snapshot_stream, check_enc.result());
+        scorum::snapshot::save_index_section<by_id>(snapshot_stream, _state, base_section());
 
-        _state.for_each_index_key([&](int index_id) {
-            auto v = scorum::get_object_type_variant(index_id);
-            v.visit(save_index_visitor(snapshot_stream, _state));
-        });
-
-        vops.save_snapshot(snapshot_stream);
+        vops.notify_save_snapshot(snapshot_stream);
         snapshot_stream.close();
     }
 
-    block_id_type load_snapshot_header(const fc::path& snapshot_path)
+    block_id_type load_header(const fc::path& snapshot_path)
     {
         std::ifstream snapshot_stream;
         snapshot_stream.open(snapshot_path.generic_string(), std::ios::binary);
@@ -135,7 +73,7 @@ public:
         return snapshot_block_id;
     }
 
-    void load_snapshot(const fc::path& snapshot_path, database_virtual_operations_emmiter_i& vops)
+    void load(const fc::path& snapshot_path, database_virtual_operations_emmiter_i& vops)
     {
         std::ifstream snapshot_stream;
         snapshot_stream.open(snapshot_path.generic_string(), std::ios::binary);
@@ -143,21 +81,9 @@ public:
         block_id_type snapshot_block_id;
         fc::raw::unpack(snapshot_stream, snapshot_block_id);
 
-        fc::ripemd160 check;
+        scorum::snapshot::load_index_section(snapshot_stream, _state, base_section());
 
-        fc::raw::unpack(snapshot_stream, check);
-
-        fc::ripemd160::encoder check_enc;
-        fc::raw::pack(check_enc, scorum::get_extraction_section().name);
-
-        FC_ASSERT(check_enc.result() == check);
-
-        _state.for_each_index_key([&](int index_id) {
-            auto v = scorum::get_object_type_variant(index_id);
-            v.visit(load_index_visitor(snapshot_stream, _state));
-        });
-
-        vops.load_snapshot(snapshot_stream);
+        vops.notify_load_snapshot(snapshot_stream);
         snapshot_stream.close();
     }
 
@@ -184,8 +110,7 @@ void make_scheduled_snapshot::on_apply(block_task_context& ctx)
 
     fc::path snapshot_dir = snapshot_service.get_snapshot_dir();
 
-    _impl->save_snapshot(_impl->get_snapshot_path(snapshot_dir),
-                         static_cast<database_virtual_operations_emmiter_i&>(ctx));
+    _impl->save(_impl->get_snapshot_path(snapshot_dir), static_cast<database_virtual_operations_emmiter_i&>(ctx));
 
     snapshot_service.clear_snapshot_schedule();
 }
@@ -201,12 +126,12 @@ load_scheduled_snapshot::~load_scheduled_snapshot()
 
 block_id_type load_scheduled_snapshot::load_header(const fc::path& snapshot_path)
 {
-    return _impl->load_snapshot_header(snapshot_path);
+    return _impl->load_header(snapshot_path);
 }
 
 void load_scheduled_snapshot::load(const fc::path& snapshot_path)
 {
-    _impl->load_snapshot(snapshot_path, static_cast<database_virtual_operations_emmiter_i&>(_db));
+    _impl->load(snapshot_path, static_cast<database_virtual_operations_emmiter_i&>(_db));
 }
 }
 }

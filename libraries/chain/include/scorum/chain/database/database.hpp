@@ -207,8 +207,8 @@ public:
     inline void push_virtual_operation(const operation& op);
     inline void push_hf_operation(const operation& op);
 
-    virtual void save_snapshot(std::ofstream&);
-    virtual void load_snapshot(std::ifstream&);
+    virtual void notify_save_snapshot(std::ofstream&);
+    virtual void notify_load_snapshot(std::ifstream&);
 
     void notify_pre_applied_block(const signed_block& block);
     void notify_applied_block(const signed_block& block);
@@ -223,8 +223,8 @@ public:
     fc::signal<void(const operation_notification&)> post_apply_operation;
     fc::signal<void(const signed_block&)> pre_applied_block;
 
-    fc::signal<void(std::ofstream&)> save_snapshot_signal;
-    fc::signal<void(std::ifstream&)> load_snapshot_signal;
+    fc::signal<void(std::ofstream&)> save_snapshot;
+    fc::signal<void(std::ifstream&)> load_snapshot;
 
     /**
      *  This signal is emitted after all operations and virtual operation for a

@@ -9,7 +9,9 @@ target_link_libraries( scorum_witness
                        scorum_protocol
                        scorum_app)
 target_include_directories( scorum_witness
-                            PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include" )
+                            PUBLIC
+                            "${CMAKE_CURRENT_SOURCE_DIR}/include"
+                            "${CMAKE_CURRENT_SOURCE_DIR}/../../snapshot/include")
 
 add_custom_target( scorum_witness_manifest SOURCES plugin.json)
 

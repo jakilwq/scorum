@@ -122,7 +122,8 @@ target_include_directories( scorum_chain
                             PUBLIC
                             "${CMAKE_CURRENT_SOURCE_DIR}/include"
                             "${CMAKE_CURRENT_BINARY_DIR}/include"
-                            "${CMAKE_CURRENT_SOURCE_DIR}/../typeid/include")
+                            "${CMAKE_CURRENT_SOURCE_DIR}/../snapshot/include"
+                            )
 
 if(MSVC)
   set_source_files_properties( database.cpp PROPERTIES COMPILE_FLAGS "/bigobj" )

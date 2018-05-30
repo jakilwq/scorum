@@ -969,14 +969,14 @@ inline void database::push_virtual_operation(const operation& op)
     }
 }
 
-void database::save_snapshot(std::ofstream& fs)
+void database::notify_save_snapshot(std::ofstream& fs)
 {
-    SCORUM_TRY_NOTIFY(save_snapshot_signal, fs);
+    SCORUM_TRY_NOTIFY(save_snapshot, fs);
 }
 
-void database::load_snapshot(std::ifstream& fs)
+void database::notify_load_snapshot(std::ifstream& fs)
 {
-    SCORUM_TRY_NOTIFY(load_snapshot_signal, fs);
+    SCORUM_TRY_NOTIFY(load_snapshot, fs);
 }
 
 inline void database::push_hf_operation(const operation& op)
