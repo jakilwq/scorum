@@ -13,10 +13,19 @@ namespace database_ns {
 
 class scheduled_snapshot_impl;
 
-struct make_scheduled_snapshot : public block_task
+using scorum::protocol::digest_type;
+
+struct snapshot_header
 {
-    explicit make_scheduled_snapshot(database& db);
-    ~make_scheduled_snapshot();
+    uint32_t head_block_number = 0;
+    digest_type head_block_digest;
+    uint32_t chainbase_flags = 0;
+};
+
+struct save_scheduled_snapshot : public block_task
+{
+    explicit save_scheduled_snapshot(database& db);
+    ~save_scheduled_snapshot();
 
     virtual void on_apply(block_task_context&);
 
@@ -24,14 +33,12 @@ private:
     std::unique_ptr<scheduled_snapshot_impl> _impl;
 };
 
-using scorum::protocol::block_id_type;
-
 struct load_scheduled_snapshot
 {
     explicit load_scheduled_snapshot(database& db);
     ~load_scheduled_snapshot();
 
-    block_id_type load_header(const fc::path& snapshot_path);
+    snapshot_header load_header(const fc::path& snapshot_path);
     void load(const fc::path& snapshot_path);
 
 private:
@@ -41,3 +48,5 @@ private:
 }
 }
 }
+
+FC_REFLECT(scorum::chain::database_ns::snapshot_header, (head_block_number)(head_block_digest)(chainbase_flags))

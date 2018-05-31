@@ -33,9 +33,14 @@ public:
         if (sz > 0)
         {
             fc::raw::pack(_fstream, get_data_struct_hash(*itr));
+
+            using object_id_type = typename object_type::id_type;
+
             for (; itr != index.end(); ++itr)
             {
                 const object_type& obj = (*itr);
+                object_id_type obj_id = obj.id;
+                fc::raw::pack(_fstream, obj_id);
                 fc::raw::pack(_fstream, obj);
             }
         }

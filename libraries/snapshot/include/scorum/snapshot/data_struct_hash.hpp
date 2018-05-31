@@ -4,6 +4,8 @@
 #include <fc/crypto/ripemd160.hpp>
 #include <fc/reflect/reflect.hpp>
 
+#include <iostream>
+
 namespace scorum {
 namespace snapshot {
 

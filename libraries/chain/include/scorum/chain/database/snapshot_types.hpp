@@ -49,7 +49,6 @@ SCORUM_OBJECT_TYPES_FOR_SNAPSHOT_SECTION(base_section, object_type,
                               (escrow)
                               (hardfork_property)
                               (owner_authority_history)
-                              (proposal)
                               (registration_committee_member)
                               (registration_pool)
                               (content_reward_fund_scr)

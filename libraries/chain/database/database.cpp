@@ -234,11 +234,15 @@ void database::reindex(const fc::path& data_dir,
 
         auto last_block_num = _block_log.head()->block_num();
         uint log_interval_sz = std::max(last_block_num / 100u, 1000u);
-        block_id_type start_apply_block_id;
+        using scorum::protocol::digest_type;
+        digest_type start_apply_block_digest;
         if (snapshot_file != fc::path())
         {
             FC_ASSERT(fc::exists(snapshot_file), "Snapshot file does not exist");
-            start_apply_block_id = database_ns::load_scheduled_snapshot(*this).load_header(snapshot_file);
+            auto header = database_ns::load_scheduled_snapshot(*this).load_header(snapshot_file);
+            FC_ASSERT(header.chainbase_flags != chainbase::database::read_write,
+                      "Snapshot saved from read-only node cannot applied to read/write node");
+            start_apply_block_digest = header.head_block_digest;
         }
 
         ilog("Replaying ${n} blocks...", ("n", last_block_num));
@@ -249,18 +253,19 @@ void database::reindex(const fc::path& data_dir,
             {
                 signed_block& block = itr.first;
                 auto cur_block_num = block.block_num();
+
                 if (cur_block_num % log_interval_sz == 0 || cur_block_num == last_block_num)
                 {
                     double percent = (cur_block_num * double(100)) / last_block_num;
                     ilog("${p}% applied. ${m}M free.",
                          ("p", (boost::format("%5.2f") % percent).str())("m", get_free_memory() / (1024 * 1024)));
                 }
-                if (start_apply_block_id != block_id_type() && block.id() == start_apply_block_id)
+                if (start_apply_block_digest != digest_type() && block.digest() == start_apply_block_digest)
                 {
                     database_ns::load_scheduled_snapshot(*this).load(snapshot_file);
-                    start_apply_block_id = block_id_type();
+                    start_apply_block_digest = digest_type();
                 }
-                if (start_apply_block_id == block_id_type())
+                if (start_apply_block_digest == digest_type())
                 {
                     apply_block(block, skip_flags);
                 }
@@ -1478,7 +1483,7 @@ void database::_apply_block(const signed_block& next_block)
         // notify observers that the block has been applied
         notify_applied_block(next_block);
 
-        database_ns::make_scheduled_snapshot(*this).apply(ctx);
+        database_ns::save_scheduled_snapshot(*this).apply(ctx);
     }
     FC_CAPTURE_LOG_AND_RETHROW((next_block.block_num()))
 }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <fc/shared_containers.hpp>
+#include <fc/shared_string.hpp>
 #include <scorum/protocol/types.hpp>
 
 // These operators are used by pack/unpack methods
@@ -44,6 +45,20 @@ template <typename Stream> Stream& operator>>(Stream& stream, account_name_flat_
         stream >> a;
         fs.insert(a);
     }
+    return stream;
+}
+
+template <typename Stream> Stream& operator<<(Stream& stream, const fc::shared_string& sstr)
+{
+    std::cerr << "in: " << sstr.c_str() << std::endl;
+    stream << sstr;
+    return stream;
+}
+
+template <typename Stream> Stream& operator>>(Stream& stream, fc::shared_string& sstr)
+{
+    stream >> sstr;
+    std::cerr << "out: " << sstr.c_str() << std::endl;
     return stream;
 }
 }

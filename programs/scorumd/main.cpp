@@ -52,6 +52,14 @@ void wait_signals(app::application* node)
             },
             SIGUSR1);
 
+        // TODO: add handlers to all possible aborting signals to close node correctly
+        fc::set_signal_handler(
+            [&handle_promise, &return_signal](int signal) {
+                return_signal = signal;
+                handle_promise->set_value(signal);
+            },
+            SIGUSR2);
+
         std::cout << std::flush;
         std::cerr << std::flush;
 
@@ -72,7 +80,7 @@ void wait_signals(app::application* node)
             exit = false;
             break;
         default:
-            elog("Unexpected interruption");
+            elog("Unexpected interruption. Signal #${s}", ("s", return_signal));
         }
 
         if (exit)

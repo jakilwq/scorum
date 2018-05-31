@@ -4,7 +4,6 @@
 
 #include <boost/preprocessor.hpp>
 
-#include <fc/exception/exception.hpp>
 #include <fc/static_variant.hpp>
 #include <fc/fixed_string.hpp>
 
@@ -33,8 +32,7 @@
             switch (id)                                                                                                \
             {                                                                                                          \
                 BOOST_PP_SEQ_FOR_EACH(SCORUM_OBJECT_TYPE_EXTRACTION_RETURN_TYPE, ENUM, FIELDS)                         \
-            default:                                                                                                   \
-                FC_THROW_EXCEPTION(fc::bad_cast_exception, "Can't find type for id = ${id}", ("id", id));              \
+            default:;                                                                                                  \
             }                                                                                                          \
             return object_type_variant_type();                                                                         \
         }                                                                                                              \

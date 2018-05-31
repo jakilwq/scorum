@@ -5,6 +5,8 @@
 
 #include <scorum/snapshot/data_struct_hash.hpp>
 
+#include <fc/io/json.hpp>
+
 namespace scorum {
 namespace snapshot {
 
@@ -24,23 +26,55 @@ public:
     template <class T> void operator()(const T&) const
     {
         using object_type = typename T::type;
-        FC_ASSERT(_state.template find<object_type>() == nullptr, "State is not empty");
         size_t sz = 0;
         fc::raw::unpack(_fstream, sz);
         if (sz > 0)
         {
             fc::ripemd160 check, etalon;
 
-            _state.template create<object_type>([&](object_type& obj) { etalon = get_data_struct_hash(obj); });
             fc::raw::unpack(_fstream, check);
+
+            const object_type* petalon_obj = _state.template find<object_type>();
+            if (petalon_obj == nullptr)
+            {
+                const object_type& fake_obj = _state.template create<object_type>(
+                    [&](object_type& obj) { etalon = get_data_struct_hash(obj); });
+                _state.template remove(fake_obj);
+            }
+            else
+            {
+                etalon = get_data_struct_hash(*petalon_obj);
+            }
 
             FC_ASSERT(check == etalon);
 
-            _state.template remove(*_state.template find<object_type>());
+            using object_id_type = typename object_type::id_type;
 
             for (size_t ci = 0; ci < sz; ++ci)
             {
-                _state.template create<object_type>([&](object_type& obj) { fc::raw::unpack(_fstream, obj); });
+                object_id_type obj_id;
+                fc::raw::unpack(_fstream, obj_id);
+                const object_type* pobj = _state.template find<object_type>(obj_id);
+                if (pobj == nullptr)
+                {
+                    _state.template create<object_type>([&](object_type& obj) {
+                        fc::raw::unpack(_fstream, obj);
+                        fc::variant vo;
+                        fc::to_variant(obj, vo);
+                        std::cerr << "created " << boost::core::demangle(typeid(object_type).name()) << ": "
+                                  << fc::json::to_pretty_string(vo) << std::endl;
+                    });
+                }
+                else
+                {
+                    _state.template modify<object_type>(*pobj, [&](object_type& obj) {
+                        fc::raw::unpack(_fstream, obj);
+                        fc::variant vo;
+                        fc::to_variant(obj, vo);
+                        std::cerr << "updated " << boost::core::demangle(typeid(object_type).name()) << ": "
+                                  << fc::json::to_pretty_string(vo) << std::endl;
+                    });
+                }
             }
         }
     }
