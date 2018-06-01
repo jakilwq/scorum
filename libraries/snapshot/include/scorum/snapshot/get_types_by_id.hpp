@@ -9,6 +9,8 @@
 
 #include <scorum/snapshot/serializer_extensions.hpp>
 
+#include <chainbase/chain_object.hpp>
+
 #define SCORUM_OBJECT_TYPE_EXTRACTION_MAKE_TYPE(elem) get_object_type<BOOST_PP_CAT(elem, _object_type)>
 
 #define SCORUM_OBJECT_TYPE_EXTRACTION_MAKE_TYPE_LIST(_1, _2, n, elem)                                                  \
@@ -27,12 +29,14 @@
         using object_type_variant_type                                                                                 \
             = fc::static_variant<BOOST_PP_SEQ_FOR_EACH_I(SCORUM_OBJECT_TYPE_EXTRACTION_MAKE_TYPE_LIST, _, FIELDS)>;    \
         fc::fixed_string_32 name = BOOST_PP_STRINGIZE(BOOST_PP_CAT(SECTION_NAME, BOOST_PP_SEQ_HEAD(FIELDS)));          \
-        object_type_variant_type get_object_type_variant(int id) const                                                 \
+        object_type_variant_type get_object_type_variant(int id, bool& initialized) const                              \
         {                                                                                                              \
+            initialized = true;                                                                                        \
             switch (id)                                                                                                \
             {                                                                                                          \
                 BOOST_PP_SEQ_FOR_EACH(SCORUM_OBJECT_TYPE_EXTRACTION_RETURN_TYPE, ENUM, FIELDS)                         \
-            default:;                                                                                                  \
+            default:                                                                                                   \
+                initialized = false;                                                                                   \
             }                                                                                                          \
             return object_type_variant_type();                                                                         \
         }                                                                                                              \

@@ -1,7 +1,11 @@
 #pragma once
 
-#include <fc/shared_containers.hpp>
+#include <fc/io/raw.hpp>
+
 #include <fc/shared_string.hpp>
+#include <fc/shared_containers.hpp>
+#include <fc/shared_buffer.hpp>
+
 #include <scorum/protocol/types.hpp>
 
 // These operators are used by pack/unpack methods
@@ -20,45 +24,104 @@ template <typename Stream, typename ObjectType> Stream& operator>>(Stream& strea
     return stream;
 }
 
-using scorum::protocol::account_name_type;
-
-using account_name_flat_set_type = fc::shared_flat_set<account_name_type>;
-
-template <typename Stream> Stream& operator<<(Stream& stream, const account_name_flat_set_type& fs)
-{
-    size_t sz = fs.size();
-    stream << sz;
-    for (size_t ci = 0; ci < sz; ++ci)
-    {
-        stream << (*fs.nth(ci));
-    }
-    return stream;
-}
-
-template <typename Stream> Stream& operator>>(Stream& stream, account_name_flat_set_type& fs)
-{
-    size_t sz = 0;
-    stream >> sz;
-    for (size_t ci = 0; ci < sz; ++ci)
-    {
-        account_name_type a;
-        stream >> a;
-        fs.insert(a);
-    }
-    return stream;
-}
-
 template <typename Stream> Stream& operator<<(Stream& stream, const fc::shared_string& sstr)
 {
-    std::cerr << "in: " << sstr.c_str() << std::endl;
-    stream << sstr;
+    std::string buff{ fc::to_string(sstr) };
+    fc::raw::pack(stream, buff);
     return stream;
 }
 
 template <typename Stream> Stream& operator>>(Stream& stream, fc::shared_string& sstr)
 {
-    stream >> sstr;
-    std::cerr << "out: " << sstr.c_str() << std::endl;
+    std::string buff;
+    fc::raw::unpack(stream, buff);
+    fc::from_string(sstr, buff);
     return stream;
+}
+
+template <typename Stream, typename Key> Stream& operator<<(Stream& stream, const fc::shared_flat_set<Key>& set)
+{
+    size_t sz = set.size();
+    stream << sz;
+    for (size_t ci = 0; ci < sz; ++ci)
+    {
+        stream << (*set.nth(ci));
+    }
+    return stream;
+}
+
+template <typename Stream, typename Key> Stream& operator>>(Stream& stream, fc::shared_flat_set<Key>& set)
+{
+    size_t sz = 0;
+    stream >> sz;
+    for (size_t ci = 0; ci < sz; ++ci)
+    {
+        Key v;
+        stream >> v;
+        set.insert(v);
+    }
+    return stream;
+}
+
+template <typename Stream, typename Val> Stream& operator<<(Stream& stream, const fc::shared_vector<Val>& vec)
+{
+    size_t sz = vec.size();
+    stream << sz;
+    for (size_t ci = 0; ci < sz; ++ci)
+    {
+        stream << (*vec.nth(ci));
+    }
+    return stream;
+}
+
+template <typename Stream, typename Val> Stream& operator>>(Stream& stream, fc::shared_vector<Val>& vec)
+{
+    size_t sz = 0;
+    stream >> sz;
+    vec.reserve(sz);
+    for (size_t ci = 0; ci < sz; ++ci)
+    {
+        Val v;
+        stream >> v;
+        vec.push_back(v);
+    }
+    return stream;
+}
+
+template <typename Stream, typename Key, typename Val>
+Stream& operator<<(Stream& stream, const fc::shared_flat_map<Key, Val>& map)
+{
+    size_t sz = map.size();
+    stream << sz;
+    for (size_t ci = 0; ci < sz; ++ci)
+    {
+        stream << (*map.nth(ci)).first << (*map.nth(ci)).second;
+    }
+    return stream;
+}
+
+template <typename Stream, typename Key, typename Val>
+Stream& operator>>(Stream& stream, fc::shared_flat_map<Key, Val>& map)
+{
+    size_t sz = 0;
+    stream >> sz;
+    for (size_t ci = 0; ci < sz; ++ci)
+    {
+        Key k;
+        Val v;
+        stream >> k >> v;
+        map.insert(std::make_pair(k, v));
+    }
+    return stream;
+}
+
+template <typename Stream> Stream& operator<<(Stream& stream, const fc::shared_buffer& vec)
+{
+    return stream << (fc::shared_vector<char>)vec;
+}
+
+template <typename Stream, typename Val> Stream& operator>>(Stream& stream, fc::shared_buffer& vec)
+{
+    return stream >> (fc::shared_vector<char>)vec;
 }
 }

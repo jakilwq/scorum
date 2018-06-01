@@ -38,9 +38,9 @@ public:
     fc::path get_snapshot_path(const fc::path& snapshot_dir)
     {
         std::stringstream snapshot_name;
-        snapshot_name << dprops_service.get().head_block_number;
-        snapshot_name << "-";
         snapshot_name << dprops_service.get().time.to_iso_string();
+        snapshot_name << "-";
+        snapshot_name << dprops_service.get().head_block_number;
         snapshot_name << ".bin";
 
         return snapshot_dir / snapshot_name.str();
@@ -60,6 +60,7 @@ public:
         snapshot_header header;
         header.head_block_number = b->block_num();
         header.head_block_digest = b->digest();
+        header.chainbase_flags = chainbase::database::read_write;
         fc::raw::pack(snapshot_stream, header);
 
         scorum::snapshot::save_index_section<by_id>(snapshot_stream, _state, base_section());

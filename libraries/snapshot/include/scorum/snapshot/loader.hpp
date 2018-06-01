@@ -5,14 +5,14 @@
 
 #include <scorum/snapshot/data_struct_hash.hpp>
 
-#include <fc/io/json.hpp>
+//#include <fc/io/json.hpp>
 
 namespace scorum {
 namespace snapshot {
 
 using db_state = chainbase::db_state;
 
-class load_index_visitor
+template <class Section> class load_index_visitor
 {
 public:
     using result_type = void;
@@ -26,6 +26,10 @@ public:
     template <class T> void operator()(const T&) const
     {
         using object_type = typename T::type;
+
+        std::cerr << "loading " << object_type::type_id << ": " << boost::core::demangle(typeid(object_type).name())
+                  << std::endl;
+
         size_t sz = 0;
         fc::raw::unpack(_fstream, sz);
         if (sz > 0)
@@ -33,6 +37,11 @@ public:
             fc::ripemd160 check, etalon;
 
             fc::raw::unpack(_fstream, check);
+
+            if (object_type::type_id == 28)
+            {
+                std::cerr << "break" << std::endl;
+            }
 
             const object_type* petalon_obj = _state.template find<object_type>();
             if (petalon_obj == nullptr)
@@ -59,20 +68,22 @@ public:
                 {
                     _state.template create<object_type>([&](object_type& obj) {
                         fc::raw::unpack(_fstream, obj);
-                        fc::variant vo;
-                        fc::to_variant(obj, vo);
-                        std::cerr << "created " << boost::core::demangle(typeid(object_type).name()) << ": "
-                                  << fc::json::to_pretty_string(vo) << std::endl;
+                        //                        fc::variant vo;
+                        //                        fc::to_variant(obj, vo);
+                        //                        std::cerr << "created " <<
+                        //                        boost::core::demangle(typeid(object_type).name()) << ": "
+                        //                                  << fc::json::to_pretty_string(vo) << std::endl;
                     });
                 }
                 else
                 {
                     _state.template modify<object_type>(*pobj, [&](object_type& obj) {
                         fc::raw::unpack(_fstream, obj);
-                        fc::variant vo;
-                        fc::to_variant(obj, vo);
-                        std::cerr << "updated " << boost::core::demangle(typeid(object_type).name()) << ": "
-                                  << fc::json::to_pretty_string(vo) << std::endl;
+                        //                        fc::variant vo;
+                        //                        fc::to_variant(obj, vo);
+                        //                        std::cerr << "updated " <<
+                        //                        boost::core::demangle(typeid(object_type).name()) << ":"
+                        //                                  << fc::json::to_pretty_string(vo) << std::endl;
                     });
                 }
             }
@@ -97,8 +108,11 @@ void load_index_section(std::ifstream& fstream, chainbase::db_state& state, cons
     FC_ASSERT(check_enc.result() == check);
 
     state.for_each_index_key([&](int index_id) {
-        auto v = section.get_object_type_variant(index_id);
-        v.visit(load_index_visitor(fstream, state));
+        bool initialized = false;
+        auto v = section.get_object_type_variant(index_id, initialized);
+        // checking because static variant interpret uninitialized state like first type
+        if (initialized)
+            v.visit(load_index_visitor<Section>(fstream, state));
     });
 }
 }
