@@ -50,8 +50,9 @@ uint32_t node_monitoring_api::get_free_shared_memory_mb() const
 }
 uint32_t node_monitoring_api::get_total_shared_memory_mb() const
 {
-    return _my->_app.chain_database()->with_read_lock(
-        [&]() { return uint32_t(_my->_app.chain_database()->get_size() / (1024 * 1024)); });
+    return 0;
+    //    return _my->_app.chain_database()->with_read_lock(
+    //        [&]() { return uint32_t(_my->_app.chain_database()->get_size() / (1024 * 1024)); });
 }
 
 } // namespace blockchain_monitoring

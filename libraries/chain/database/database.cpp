@@ -169,13 +169,16 @@ void database::open(const fc::path& data_dir,
 
             // Rewind all undo state. This should return us to the state at the last irreversible block.
             with_write_lock([&]() {
-                for_each_index([&](chainbase::abstract_generic_index_i& item) { item.undo_all(); });
+                //                for_each_index([&](chainbase::abstract_generic_index_i& item) { item.undo_all(); });
 
-                for_each_index([&](chainbase::abstract_generic_index_i& item) {
-                    FC_ASSERT(item.revision() == head_block_num(),
-                              "Chainbase revision does not match head block num. Reindex blockchain.",
-                              ("rev", item.revision())("head_block", head_block_num()));
-                });
+                //                for_each_index([&](chainbase::abstract_generic_index_i& item) {
+                //                    FC_ASSERT(item.revision() == head_block_num(),
+                //                              "Chainbase revision does not match head block num. Reindex blockchain.",
+                //                              ("rev", item.revision())("head_block", head_block_num()));
+                //                });
+                undo_all();
+                FC_ASSERT(revision() == head_block_num(), "Chainbase revision does not match head block num",
+                          ("rev", revision())("head_block", head_block_num()));
 
                 validate_invariants();
             });
@@ -252,8 +255,10 @@ void database::reindex(const fc::path& data_dir,
                 else
                     break;
             }
+            //            for_each_index([&](chainbase::abstract_generic_index_i& item) {
+            //            item.set_revision(head_block_num()); });
 
-            for_each_index([&](chainbase::abstract_generic_index_i& item) { item.set_revision(head_block_num()); });
+            set_revision(head_block_num());
         });
 
         if (_block_log.head()->block_num())
@@ -579,9 +584,12 @@ bool database::_push_block(const signed_block& new_block)
                         optional<fc::exception> except;
                         try
                         {
-                            auto session = start_undo_session();
+                            //                            auto session = start_undo_session();
+                            //                            apply_block((*ritr)->data, skip);
+                            //                            session->push();
+                            auto session = start_undo_session(true);
                             apply_block((*ritr)->data, skip);
-                            session->push();
+                            session.push();
                         }
                         catch (const fc::exception& e)
                         {
@@ -607,9 +615,12 @@ bool database::_push_block(const signed_block& new_block)
                             // restore all blocks from the good fork
                             for (auto ritr = branches.second.rbegin(); ritr != branches.second.rend(); ++ritr)
                             {
-                                auto session = start_undo_session();
+                                //                                auto session = start_undo_session();
+                                //                                apply_block((*ritr)->data, skip);
+                                //                                session->push();
+                                auto session = start_undo_session(true);
                                 apply_block((*ritr)->data, skip);
-                                session->push();
+                                session.push();
                             }
                             throw * except;
                         }
@@ -625,9 +636,12 @@ bool database::_push_block(const signed_block& new_block)
 
         try
         {
-            auto session = start_undo_session();
+            //            auto session = start_undo_session();
+            //            apply_block(new_block, skip);
+            //            session->push();
+            auto session = start_undo_session(true);
             apply_block(new_block, skip);
-            session->push();
+            session.push();
         }
         catch (const fc::exception& e)
         {
@@ -673,27 +687,52 @@ void database::push_transaction(const signed_transaction& trx, uint32_t skip)
     FC_CAPTURE_AND_RETHROW((trx))
 }
 
+// void database::_push_transaction(const signed_transaction& trx)
+//{
+//    // If this is the first transaction pushed after applying a block, start a new undo session.
+//    // This allows us to quickly rewind to the clean state of the head block, in case a new block arrives.
+//    if (!_pending_tx_session.valid())
+//    {
+//        _pending_tx_session = start_undo_session(true);
+//    }
+
+//    // Create a temporary undo session as a child of _pending_tx_session.
+//    // The temporary session will be discarded by the destructor if
+//    // _apply_transaction fails.  If we make it to merge(), we
+//    // apply the changes.
+
+//    //    auto temp_session = start_undo_session();
+//    auto temp_session = start_undo_session(true);
+//    _apply_transaction(trx);
+//    _pending_tx.push_back(trx);
+
+//    // The transaction applied successfully. Merge its changes into the pending block session.
+//    for_each_index([&](chainbase::abstract_generic_index_i& item) { item.squash(); });
+//    temp_session->push();
+
+//    // notify anyone listening to pending transactions
+//    notify_on_pending_transaction(trx);
+//}
+
 void database::_push_transaction(const signed_transaction& trx)
 {
     // If this is the first transaction pushed after applying a block, start a new undo session.
     // This allows us to quickly rewind to the clean state of the head block, in case a new block arrives.
     if (!_pending_tx_session.valid())
-    {
-        _pending_tx_session = start_undo_session();
-    }
+        _pending_tx_session = start_undo_session(true);
 
     // Create a temporary undo session as a child of _pending_tx_session.
     // The temporary session will be discarded by the destructor if
     // _apply_transaction fails.  If we make it to merge(), we
     // apply the changes.
 
-    auto temp_session = start_undo_session();
+    auto temp_session = start_undo_session(true);
     _apply_transaction(trx);
     _pending_tx.push_back(trx);
 
+    //    notify_changed_objects();
     // The transaction applied successfully. Merge its changes into the pending block session.
-    for_each_index([&](chainbase::abstract_generic_index_i& item) { item.squash(); });
-    temp_session->push();
+    temp_session.squash();
 
     // notify anyone listening to pending transactions
     notify_on_pending_transaction(trx);
@@ -756,7 +795,7 @@ signed_block database::_generate_block(fc::time_point_sec when,
         // re-apply pending transactions in this method.
         //
         _pending_tx_session.reset();
-        _pending_tx_session = start_undo_session();
+        _pending_tx_session = start_undo_session(true);
 
         uint64_t postponed_tx_count = 0;
         // pop pending state (reset to head block state)
@@ -781,10 +820,13 @@ signed_block database::_generate_block(fc::time_point_sec when,
 
             try
             {
-                auto temp_session = start_undo_session();
+                //                auto temp_session = start_undo_session();
+                //                _apply_transaction(tx);
+                //                for_each_index([&](chainbase::abstract_generic_index_i& item) { item.squash(); });
+                //                temp_session->push();
+                auto temp_session = start_undo_session(true);
                 _apply_transaction(tx);
-                for_each_index([&](chainbase::abstract_generic_index_i& item) { item.squash(); });
-                temp_session->push();
+                temp_session.squash();
 
                 total_block_size += fc::raw::pack_size(tx);
                 pending_block.transactions.push_back(tx);
@@ -864,6 +906,25 @@ signed_block database::_generate_block(fc::time_point_sec when,
  * Removes the most recent block from the database and
  * undoes any changes it made.
  */
+// void database::pop_block()
+//{
+//    try
+//    {
+//        _pending_tx_session.reset();
+//        auto head_id = head_block_id();
+
+//        /// save the head block so we can recover its transactions
+//        optional<signed_block> head_block = fetch_block_by_id(head_id);
+//        SCORUM_ASSERT(head_block.valid(), pop_empty_chain, "there are no blocks to pop");
+
+//        _fork_db.pop_block();
+
+//        for_each_index([&](chainbase::abstract_generic_index_i& item) { item.undo(); });
+
+//        _popped_tx.insert(_popped_tx.begin(), head_block->transactions.begin(), head_block->transactions.end());
+//    }
+//    FC_CAPTURE_AND_RETHROW()
+//}
 void database::pop_block()
 {
     try
@@ -876,8 +937,7 @@ void database::pop_block()
         SCORUM_ASSERT(head_block.valid(), pop_empty_chain, "there are no blocks to pop");
 
         _fork_db.pop_block();
-
-        for_each_index([&](chainbase::abstract_generic_index_i& item) { item.undo(); });
+        undo();
 
         _popped_tx.insert(_popped_tx.begin(), head_block->transactions.begin(), head_block->transactions.end());
     }
@@ -1203,8 +1263,9 @@ void database::initialize_indexes()
 void database::validate_transaction(const signed_transaction& trx)
 {
     database::with_write_lock([&]() {
-        auto session = start_undo_session();
+        auto session = start_undo_session(true);
         _apply_transaction(trx);
+        session.undo();
     });
 }
 
@@ -1767,8 +1828,7 @@ void database::update_last_irreversible_block()
             }
         }
 
-        for_each_index(
-            [&](chainbase::abstract_generic_index_i& item) { item.commit(dpo.last_irreversible_block_num); });
+        commit(dpo.last_irreversible_block_num);
 
         if (!(get_node_properties().skip_flags & skip_block_log))
         {
