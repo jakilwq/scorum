@@ -134,6 +134,8 @@ void database::update_witness_schedule()
                 fc_ilog(fc::logger::get("dbg"), "update_wo=${wo}", ("wo", wo));
             });
         }
+        int x;
+        ++x;
 
         fc_ilog(fc::logger::get("dbg"), "prev_schedule=${schedule}",
                 ("schedule", witness_schedule::get_witness_schedule(schedule_service.get(), witness_service)));
@@ -154,6 +156,8 @@ void database::update_witness_schedule()
             /// shuffle current shuffled witnesses
             auto now_hi = uint64_t(_db.head_block_time().sec_since_epoch()) << 32;
 
+            fc_ilog(fc::logger::get("dbg"), "head_block_time=${head_block_time}",
+                    ("head_block_time", _db.head_block_time().to_iso_string()));
             fc_ilog(fc::logger::get("dbg"), "now_hi=${now_hi}", ("now_hi", now_hi));
 
             fc_ilog(fc::logger::get("dbg"), "before_shufle=${schedule}",
