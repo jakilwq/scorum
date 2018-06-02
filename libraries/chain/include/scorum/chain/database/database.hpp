@@ -382,7 +382,8 @@ private:
 
     bool _is_producing = false;
 
-    optional<chainbase::abstract_undo_session_ptr> _pending_tx_session;
+    //    optional<chainbase::abstract_undo_session_ptr> _pending_tx_session;
+    optional<chainbase::database::session> _pending_tx_session;
 
     std::vector<signed_transaction> _pending_tx;
     fork_database _fork_db;
