@@ -39,31 +39,8 @@ template <typename Stream> Stream& operator>>(Stream& stream, fc::shared_string&
     return stream;
 }
 
-template <typename Stream, typename Key> Stream& operator<<(Stream& stream, const fc::shared_flat_set<Key>& set)
-{
-    size_t sz = set.size();
-    stream << sz;
-    for (size_t ci = 0; ci < sz; ++ci)
-    {
-        stream << (*set.nth(ci));
-    }
-    return stream;
-}
-
-template <typename Stream, typename Key> Stream& operator>>(Stream& stream, fc::shared_flat_set<Key>& set)
-{
-    size_t sz = 0;
-    stream >> sz;
-    for (size_t ci = 0; ci < sz; ++ci)
-    {
-        Key v;
-        stream >> v;
-        set.insert(v);
-    }
-    return stream;
-}
-
-template <typename Stream, typename Val> Stream& operator<<(Stream& stream, const fc::shared_vector<Val>& vec)
+namespace raw {
+template <typename Stream, typename Val> Stream& pack(Stream& stream, const fc::shared_vector<Val>& vec)
 {
     size_t sz = vec.size();
     stream << sz;
@@ -74,7 +51,7 @@ template <typename Stream, typename Val> Stream& operator<<(Stream& stream, cons
     return stream;
 }
 
-template <typename Stream, typename Val> Stream& operator>>(Stream& stream, fc::shared_vector<Val>& vec)
+template <typename Stream, typename Val> Stream& unpack(Stream& stream, fc::shared_vector<Val>& vec)
 {
     size_t sz = 0;
     stream >> sz;
@@ -88,8 +65,32 @@ template <typename Stream, typename Val> Stream& operator>>(Stream& stream, fc::
     return stream;
 }
 
+template <typename Stream, typename Key> Stream& pack(Stream& stream, const fc::shared_flat_set<Key>& set)
+{
+    size_t sz = set.size();
+    stream << sz;
+    for (size_t ci = 0; ci < sz; ++ci)
+    {
+        stream << (*set.nth(ci));
+    }
+    return stream;
+}
+
+template <typename Stream, typename Key> Stream& unpack(Stream& stream, fc::shared_flat_set<Key>& set)
+{
+    size_t sz = 0;
+    stream >> sz;
+    for (size_t ci = 0; ci < sz; ++ci)
+    {
+        Key v;
+        stream >> v;
+        set.insert(v);
+    }
+    return stream;
+}
+
 template <typename Stream, typename Key, typename Val>
-Stream& operator<<(Stream& stream, const fc::shared_flat_map<Key, Val>& map)
+Stream& pack(Stream& stream, const fc::shared_flat_map<Key, Val>& map)
 {
     size_t sz = map.size();
     stream << sz;
@@ -101,7 +102,7 @@ Stream& operator<<(Stream& stream, const fc::shared_flat_map<Key, Val>& map)
 }
 
 template <typename Stream, typename Key, typename Val>
-Stream& operator>>(Stream& stream, fc::shared_flat_map<Key, Val>& map)
+Stream& unpack(Stream& stream, fc::shared_flat_map<Key, Val>& map)
 {
     size_t sz = 0;
     stream >> sz;
@@ -114,14 +115,5 @@ Stream& operator>>(Stream& stream, fc::shared_flat_map<Key, Val>& map)
     }
     return stream;
 }
-
-template <typename Stream> Stream& operator<<(Stream& stream, const fc::shared_buffer& vec)
-{
-    return stream << (fc::shared_vector<char>)vec;
-}
-
-template <typename Stream, typename Val> Stream& operator>>(Stream& stream, fc::shared_buffer& vec)
-{
-    return stream >> (fc::shared_vector<char>)vec;
 }
 }
