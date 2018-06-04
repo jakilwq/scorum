@@ -61,7 +61,9 @@ public:
         header.head_block_number = b->block_num();
         header.head_block_digest = b->digest();
         header.chainbase_flags = chainbase::database::read_write;
+        std::cerr << snapshot_stream.tellp() << std::endl;
         fc::raw::pack(snapshot_stream, header);
+        std::cerr << snapshot_stream.tellp() << std::endl;
 
         scorum::snapshot::save_index_section<by_id>(snapshot_stream, _state, base_section());
 

@@ -34,11 +34,14 @@ public:
                                 .indices()
                                 .template get<IterationTag>();
         size_t sz = index.size();
+        std::cerr << _fstream.tellp() << std::endl;
         fc::raw::pack(_fstream, index.size());
         auto itr = index.begin();
         if (sz > 0)
         {
+            std::cerr << _fstream.tellp() << std::endl;
             fc::raw::pack(_fstream, get_data_struct_hash(*itr));
+            std::cerr << _fstream.tellp() << std::endl;
 
             if (object_type::type_id == 28)
             {
@@ -58,6 +61,7 @@ public:
 
                 object_id_type obj_id = obj.id;
                 fc::raw::pack(_fstream, obj_id);
+                std::cerr << _fstream.tellp() << std::endl;
                 fc::raw::pack(_fstream, obj);
             }
         }

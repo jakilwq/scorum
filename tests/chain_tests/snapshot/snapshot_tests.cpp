@@ -79,8 +79,9 @@ BOOST_AUTO_TEST_CASE(save_and_load_snapshot_for_genesis_state)
 {
     using namespace scorum::chain::database_ns;
 
-    fc::path dir = fc::temp_directory(graphene::utilities::temp_directory_path()).path();
-    db.set_snapshot_dir(dir);
+    // fc::path dir = fc::temp_directory(graphene::utilities::temp_directory_path()).path();
+    static const char* snapshot_dir = "/home/wi/__S";
+    db.set_snapshot_dir(snapshot_dir);
     db.schedule_snapshot_task();
 
     BOOST_CHECK_EQUAL(snapshot_service.is_snapshot_scheduled(), true);
