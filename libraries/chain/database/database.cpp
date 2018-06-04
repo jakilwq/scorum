@@ -221,6 +221,7 @@ void database::reindex(const fc::path& data_dir,
 {
     try
     {
+        skip_flags = skip_nothing;
         ilog("Reindexing Blockchain");
 
         wipe(data_dir, shared_mem_dir, false);
