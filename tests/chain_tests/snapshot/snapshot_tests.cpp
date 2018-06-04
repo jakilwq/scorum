@@ -60,28 +60,27 @@ BOOST_AUTO_TEST_CASE(dont_make_snapshot_with_no_snapshot_dir)
     BOOST_CHECK_EQUAL(snapshot_saved_for_plugin, false);
 }
 
-// BOOST_AUTO_TEST_CASE(make_snapshot_with_snapshot_dir)
-//{
-//    fc::path dir = fc::temp_directory(graphene::utilities::temp_directory_path()).path();
-//    db.set_snapshot_dir(dir);
-//    db.schedule_snapshot_task();
+BOOST_AUTO_TEST_CASE(make_snapshot_with_snapshot_dir)
+{
+    fc::path dir = fc::temp_directory(graphene::utilities::temp_directory_path()).path();
+    db.set_snapshot_dir(dir);
+    db.schedule_snapshot_task();
 
-//    BOOST_CHECK_EQUAL(snapshot_service.is_snapshot_scheduled(), true);
+    BOOST_CHECK_EQUAL(snapshot_service.is_snapshot_scheduled(), true);
 
-//    generate_block();
+    generate_block();
 
-//    BOOST_CHECK_EQUAL(snapshot_saved_for_plugin, true);
+    BOOST_CHECK_EQUAL(snapshot_saved_for_plugin, true);
 
-//    BOOST_CHECK_EQUAL(snapshot_service.is_snapshot_scheduled(), false);
-//}
+    BOOST_CHECK_EQUAL(snapshot_service.is_snapshot_scheduled(), false);
+}
 
 BOOST_AUTO_TEST_CASE(save_and_load_snapshot_for_genesis_state)
 {
     using namespace scorum::chain::database_ns;
 
-    // fc::path dir = fc::temp_directory(graphene::utilities::temp_directory_path()).path();
-    static const char* snapshot_dir = "/home/wi/__S";
-    db.set_snapshot_dir(snapshot_dir);
+    fc::path dir = fc::temp_directory(graphene::utilities::temp_directory_path()).path();
+    db.set_snapshot_dir(dir);
     db.schedule_snapshot_task();
 
     BOOST_CHECK_EQUAL(snapshot_service.is_snapshot_scheduled(), true);
@@ -106,9 +105,7 @@ BOOST_AUTO_TEST_CASE(save_and_load_snapshot_for_genesis_state)
     BOOST_REQUIRE_EQUAL(header.head_block_number, dprops_service.get().head_block_number);
     BOOST_REQUIRE_EQUAL(header.chainbase_flags, chainbase::database::read_write);
 
-    loader.load(snapshot_file);
-
-    // TODO
+    BOOST_REQUIRE_NO_THROW(loader.load(snapshot_file));
 }
 
 BOOST_AUTO_TEST_SUITE_END()

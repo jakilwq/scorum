@@ -5,7 +5,7 @@
 
 #include <scorum/snapshot/data_struct_hash.hpp>
 
-#include <fc/io/json.hpp>
+//#include <fc/io/json.hpp>
 
 namespace scorum {
 namespace snapshot {
@@ -34,19 +34,11 @@ public:
                                 .indices()
                                 .template get<IterationTag>();
         size_t sz = index.size();
-        std::cerr << _fstream.tellp() << std::endl;
         fc::raw::pack(_fstream, index.size());
         auto itr = index.begin();
         if (sz > 0)
         {
-            std::cerr << _fstream.tellp() << std::endl;
             fc::raw::pack(_fstream, get_data_struct_hash(*itr));
-            std::cerr << _fstream.tellp() << std::endl;
-
-            if (object_type::type_id == 28)
-            {
-                std::cerr << "break" << std::endl;
-            }
 
             using object_id_type = typename object_type::id_type;
 
@@ -54,14 +46,13 @@ public:
             {
                 const object_type& obj = (*itr);
 
-                fc::variant vo;
-                fc::to_variant(obj, vo);
-                std::cerr << "saved " << boost::core::demangle(typeid(object_type).name()) << ":"
-                          << fc::json::to_pretty_string(vo) << std::endl;
+                //                fc::variant vo;
+                //                fc::to_variant(obj, vo);
+                //                std::cerr << "saved " << boost::core::demangle(typeid(object_type).name()) << ":"
+                //                          << fc::json::to_pretty_string(vo) << std::endl;
 
                 object_id_type obj_id = obj.id;
                 fc::raw::pack(_fstream, obj_id);
-                std::cerr << _fstream.tellp() << std::endl;
                 fc::raw::pack(_fstream, obj);
             }
         }

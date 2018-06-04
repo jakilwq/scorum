@@ -38,11 +38,6 @@ public:
 
             fc::raw::unpack(_fstream, check);
 
-            if (object_type::type_id == 28)
-            {
-                std::cerr << "break" << std::endl;
-            }
-
             const object_type* petalon_obj = _state.template find<object_type>();
             if (petalon_obj == nullptr)
             {

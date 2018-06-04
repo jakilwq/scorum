@@ -61,9 +61,7 @@ public:
         header.head_block_number = b->block_num();
         header.head_block_digest = b->digest();
         header.chainbase_flags = chainbase::database::read_write;
-        std::cerr << snapshot_stream.tellp() << std::endl;
         fc::raw::pack(snapshot_stream, header);
-        std::cerr << snapshot_stream.tellp() << std::endl;
 
         scorum::snapshot::save_index_section<by_id>(snapshot_stream, _state, base_section());
 
@@ -98,8 +96,6 @@ public:
 
         uint64_t sz = fc::file_size(snapshot_path);
 
-        std::cerr << sz << std::endl;
-
         snapshot_header header = load_header(snapshot_stream);
 
         ilog("Loading snapshot for block ${n} from file ${f}.",
@@ -109,9 +105,7 @@ public:
 
         vops.notify_load_snapshot(snapshot_stream);
 
-        std::cerr << snapshot_stream.tellg() << std::endl;
-
-        FC_ASSERT((uint64_t)snapshot_stream.tellg() != sz,
+        FC_ASSERT((uint64_t)snapshot_stream.tellg() == sz,
                   "Not all indexes are loaded. Node configuration does not match snapshot.");
 
         snapshot_stream.close();
