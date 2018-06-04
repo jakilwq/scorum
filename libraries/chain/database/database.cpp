@@ -189,10 +189,7 @@ void database::reindex(const fc::path& data_dir,
 
         ilog("Replaying blocks...");
 
-        uint64_t skip_flags = skip_witness_signature | skip_transaction_signatures | skip_transaction_dupe_check
-            | skip_tapos_check | skip_merkle_check | skip_witness_schedule_check | skip_authority_check | skip_validate
-            | /// no need to validate operations
-            skip_validate_invariants | skip_block_log;
+        uint64_t skip_flags = skip_nothing;
 
         with_write_lock([&]() {
             auto itr = _block_log.read_block(0);
