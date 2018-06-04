@@ -154,6 +154,7 @@ void database::update_witness_schedule()
             /// shuffle current shuffled witnesses
             auto now_hi = uint64_t(_db.head_block_time().sec_since_epoch()) << 32;
 
+            fc_ilog(fc::logger::get("dbg"), "head_block_time=${t}", ("t", _db.head_block_time()));
             fc_ilog(fc::logger::get("dbg"), "now_hi=${now_hi}", ("now_hi", now_hi));
 
             fc_ilog(fc::logger::get("dbg"), "before_shufle=${schedule}",
