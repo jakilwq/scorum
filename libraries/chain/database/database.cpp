@@ -1608,6 +1608,15 @@ const witness_object& database::validate_block_header(uint32_t skip, const signe
             if (witness.owner != scheduled_witness)
             {
                 wdump((obtain_service<dbs_dynamic_global_property>().get())(next_block.block_num())(next_block));
+
+                const dynamic_global_property_object& dpo = obtain_service<dbs_dynamic_global_property>().get();
+                const witness_schedule_object& wso = obtain_service<dbs_witness_schedule>().get();
+
+                uint64_t current_aslot = dpo.current_aslot + slot_num;
+                // auto current_witness = wso.current_shuffled_witnesses[current_aslot % wso.num_scheduled_witnesses];
+
+                wlog("Witness produced block at wrong time: ${current_aslot}, schedule: ${wso}",
+                     ("current_aslot", current_aslot)("wso", wso));
             }
 
             FC_ASSERT(witness.owner == scheduled_witness, "Witness produced block at wrong time",
@@ -1667,6 +1676,8 @@ void database::update_global_dynamic_data(const signed_block& b)
                         {
                             w.signing_key = public_key_type();
                             push_virtual_operation(shutdown_witness_operation(w.owner));
+
+                            wlog("Block ${new_block} caused witness ${w} to shutdown", ("new_block", b)("w", w));
                         }
                     });
                 }
@@ -1728,6 +1739,8 @@ void database::update_last_irreversible_block()
                 if (head_block_num() > SCORUM_MAX_WITNESSES)
                 {
                     _dpo.last_irreversible_block_num = head_block_num() - SCORUM_MAX_WITNESSES;
+
+                    ilog("Update last_irreversible_block_num ${n}", ("n", _dpo.last_irreversible_block_num));
                 }
             });
         }
@@ -1763,6 +1776,8 @@ void database::update_last_irreversible_block()
             {
                 modify(dpo, [&](dynamic_global_property_object& _dpo) {
                     _dpo.last_irreversible_block_num = new_last_irreversible_block_num;
+
+                    ilog("Update last_irreversible_block_num ${n}", ("n", _dpo.last_irreversible_block_num));
                 });
             }
         }

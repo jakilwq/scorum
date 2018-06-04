@@ -30,6 +30,7 @@
 #include <scorum/blockchain_history/schema/operation_objects.hpp>
 #include <scorum/chain/genesis/genesis_state.hpp>
 #include <scorum/chain/services/account.hpp>
+#include <scorum/chain/services/witness_schedule.hpp>
 #include <scorum/chain/services/dynamic_global_property.hpp>
 
 #include <scorum/blockchain_history/blockchain_history_plugin.hpp>
@@ -70,14 +71,15 @@ using namespace database_fixture;
 
 BOOST_AUTO_TEST_SUITE(block_tests)
 
-void db_setup_and_open(database& db, const fc::path& path)
-{
-    genesis_state_type genesis;
-
-    genesis = database_integration_fixture::create_default_genesis_state();
-
-    db.open(path, path, TEST_SHARED_MEM_SIZE_10MB, chainbase::database::read_write, genesis);
-}
+// void db_setup_and_open(database& db, const fc::path& path)
+//{
+//    genesis_state_type genesis;
+//
+//    genesis = database_integration_fixture::create_default_genesis_state();
+//
+//    db.open(path, path, TEST_SHARED_MEM_SIZE_10MB, chainbase::database::read_write, genesis);
+//}
+void db_setup_and_open2(database& db, const fc::path& path, scorum::protocol::private_key_type& priv_key);
 
 BOOST_AUTO_TEST_CASE(generate_empty_blocks)
 {
@@ -92,7 +94,7 @@ BOOST_AUTO_TEST_CASE(generate_empty_blocks)
         signed_block cutoff_block;
         {
             database db(database::opt_default);
-            db_setup_and_open(db, data_dir.path());
+            db_setup_and_open2(db, data_dir.path(), init_account_priv_key);
             b = db.generate_block(db.get_slot_time(1), db.get_scheduled_witness(1), init_account_priv_key,
                                   database::skip_nothing);
 
@@ -120,7 +122,7 @@ BOOST_AUTO_TEST_CASE(generate_empty_blocks)
         }
         {
             database db(database::opt_default);
-            db_setup_and_open(db, data_dir.path());
+            db_setup_and_open2(db, data_dir.path(), init_account_priv_key);
             BOOST_CHECK_EQUAL(db.head_block_num(), cutoff_block.block_num());
             b = cutoff_block;
             for (uint32_t i = 0; i < 200; ++i)
@@ -147,12 +149,13 @@ BOOST_AUTO_TEST_CASE(undo_block)
     {
         fc::temp_directory data_dir(graphene::utilities::temp_directory_path());
         {
+            auto init_account_priv_key = fc::ecc::private_key::regenerate(fc::sha256::hash(std::string(TEST_INIT_KEY)));
+
             database db(database::opt_default);
-            db_setup_and_open(db, data_dir.path());
+            db_setup_and_open2(db, data_dir.path(), init_account_priv_key);
             fc::time_point_sec now(TEST_GENESIS_TIMESTAMP);
             std::vector<fc::time_point_sec> time_stack;
 
-            auto init_account_priv_key = fc::ecc::private_key::regenerate(fc::sha256::hash(std::string(TEST_INIT_KEY)));
             for (uint32_t i = 0; i < 5; ++i)
             {
                 now = db.get_slot_time(1);
@@ -203,12 +206,13 @@ BOOST_AUTO_TEST_CASE(fork_blocks)
 
         // TODO This test needs 6-7 ish witnesses prior to fork
 
-        database db1(database::opt_default);
-        db_setup_and_open(db1, data_dir1.path());
-        database db2(database::opt_default);
-        db_setup_and_open(db2, data_dir2.path());
-
         auto init_account_priv_key = fc::ecc::private_key::regenerate(fc::sha256::hash(std::string(TEST_INIT_KEY)));
+
+        database db1(database::opt_default);
+        db_setup_and_open2(db1, data_dir1.path(), init_account_priv_key);
+        database db2(database::opt_default);
+        db_setup_and_open2(db2, data_dir2.path(), init_account_priv_key);
+
         for (uint32_t i = 0; i < 10; ++i)
         {
             auto b = db1.generate_block(db1.get_slot_time(1), db1.get_scheduled_witness(1), init_account_priv_key,
@@ -276,13 +280,14 @@ BOOST_AUTO_TEST_CASE(switch_forks_undo_create)
         fc::temp_directory dir1(graphene::utilities::temp_directory_path());
         fc::temp_directory dir2(graphene::utilities::temp_directory_path());
 
-        database db1(database::opt_default);
-        db_setup_and_open(db1, dir1.path());
-        database db2(database::opt_default);
-        db_setup_and_open(db2, dir2.path());
-
         auto init_account_priv_key = fc::ecc::private_key::regenerate(fc::sha256::hash(std::string(TEST_INIT_KEY)));
         public_key_type init_account_pub_key = init_account_priv_key.get_public_key();
+
+        database db1(database::opt_default);
+        db_setup_and_open2(db1, dir1.path(), init_account_priv_key);
+        database db2(database::opt_default);
+        db_setup_and_open2(db2, dir2.path(), init_account_priv_key);
+
         db1.get_index<account_index>();
 
         //*
@@ -342,17 +347,17 @@ BOOST_AUTO_TEST_CASE(duplicate_transactions)
         fc::temp_directory dir1(graphene::utilities::temp_directory_path());
         fc::temp_directory dir2(graphene::utilities::temp_directory_path());
 
+        auto init_account_priv_key = fc::ecc::private_key::regenerate(fc::sha256::hash(std::string(TEST_INIT_KEY)));
+        public_key_type init_account_pub_key = init_account_priv_key.get_public_key();
+
         database db1(database::opt_default);
-        db_setup_and_open(db1, dir1.path());
+        db_setup_and_open2(db1, dir1.path(), init_account_priv_key);
         database db2(database::opt_default);
-        db_setup_and_open(db2, dir2.path());
+        db_setup_and_open2(db2, dir2.path(), init_account_priv_key);
 
         BOOST_CHECK(db1.get_chain_id() == db2.get_chain_id());
 
         auto skip_sigs = database::skip_transaction_signatures | database::skip_authority_check;
-
-        auto init_account_priv_key = fc::ecc::private_key::regenerate(fc::sha256::hash(std::string(TEST_INIT_KEY)));
-        public_key_type init_account_pub_key = init_account_priv_key.get_public_key();
 
         signed_transaction trx;
         account_create_operation cop;
@@ -400,11 +405,11 @@ BOOST_AUTO_TEST_CASE(tapos)
     {
         fc::temp_directory dir1(graphene::utilities::temp_directory_path());
 
-        database db1(database::opt_default);
-        db_setup_and_open(db1, dir1.path());
-
         auto init_account_priv_key = fc::ecc::private_key::regenerate(fc::sha256::hash(std::string(TEST_INIT_KEY)));
         public_key_type init_account_pub_key = init_account_priv_key.get_public_key();
+
+        database db1(database::opt_default);
+        db_setup_and_open2(db1, dir1.path(), init_account_priv_key);
 
         auto b = db1.generate_block(db1.get_slot_time(1), db1.get_scheduled_witness(1), init_account_priv_key,
                                     database::skip_nothing);
@@ -737,6 +742,413 @@ BOOST_FIXTURE_TEST_CASE(skip_block, database_default_integration_fixture)
         BOOST_CHECK(db.head_block_time() == block_time + SCORUM_BLOCK_INTERVAL);
     }
     FC_LOG_AND_RETHROW();
+}
+
+void print_block(const signed_block& b)
+{
+    const std::string red("\033[0;31m");
+    const std::string green("\033[1;32m");
+    const std::string yellow("\033[1;33m");
+    const std::string cyan("\033[0;36m");
+    const std::string magenta("\033[0;35m");
+    const std::string reset("\033[0m");
+
+    // clang-format off
+    std::cout << cyan << "Block " << b.block_num() << ": "
+        << b.id().str() << " "
+        << b.previous.str() << " "
+        << b.witness << " "
+        << b.timestamp.to_iso_string() << " "
+        << reset 
+        << std::endl;
+    // clang-format on
+}
+
+void db_setup_and_open2(database& db, const fc::path& path, scorum::protocol::private_key_type& priv_key)
+{
+    genesis_state_type genesis;
+
+#define WITNESS(x)                                                                                                     \
+    Actor x(#x);                                                                                                       \
+    x.private_key = priv_key;                                                                                          \
+    x.public_key = x.private_key.get_public_key();
+
+    WITNESS(witness1);
+    WITNESS(witness2);
+    WITNESS(witness3);
+    WITNESS(witness4);
+    WITNESS(witness5);
+    WITNESS(witness6);
+    WITNESS(witness7);
+    WITNESS(witness8);
+    WITNESS(witness9);
+    WITNESS(witness10);
+    WITNESS(witness11);
+    WITNESS(witness12);
+    WITNESS(witness13);
+    WITNESS(witness14);
+    WITNESS(witness15);
+    WITNESS(witness16);
+    WITNESS(witness17);
+    WITNESS(witness18);
+    WITNESS(witness19);
+    WITNESS(witness20);
+    WITNESS(witness21);
+    WITNESS(witness22);
+
+    genesis = database_integration_fixture::default_genesis_state()
+                  .accounts(witness1, witness2, witness3, witness4, witness5, witness6, witness7, witness8, witness9,
+                            witness10, witness11, witness12, witness13, witness14, witness15, witness16, witness17,
+                            witness18, witness19, witness20, witness21, witness22)
+                  .witnesses(witness1, witness2, witness3, witness4, witness5, witness6, witness7, witness8, witness9,
+                             witness10, witness11, witness12, witness13, witness14, witness15, witness16, witness17,
+                             witness18, witness19, witness20, witness21, witness22)
+                  .generate();
+
+    db.open(path, path, TEST_SHARED_MEM_SIZE_10MB, chainbase::database::read_write, genesis);
+
+    db.obtain_service<dbs_witness_schedule>().update(
+        [&](witness_schedule_object& wso) { wso.num_scheduled_witnesses = 21; });
+}
+
+void db_setup_and_open3(database& db, const fc::path& path, scorum::protocol::private_key_type& priv_key)
+{
+    genesis_state_type genesis;
+
+#define WITNESS(x)                                                                                                     \
+    Actor x(#x);                                                                                                       \
+    x.private_key = priv_key;                                                                                          \
+    x.public_key = x.private_key.get_public_key();
+
+    WITNESS(witness1);
+    WITNESS(witness2);
+    WITNESS(witness3);
+    WITNESS(witness4);
+    WITNESS(witness5);
+    WITNESS(witness6);
+    WITNESS(witness7);
+    WITNESS(witness8);
+    WITNESS(witness9);
+    WITNESS(witness10);
+    WITNESS(witness11);
+    WITNESS(witness12);
+    WITNESS(witness13);
+    WITNESS(witness14);
+    WITNESS(witness15);
+    WITNESS(witness16);
+    WITNESS(witness17);
+    WITNESS(witness18);
+    WITNESS(witness19);
+    WITNESS(witness20);
+    WITNESS(witness21);
+    WITNESS(witness22);
+
+    genesis = database_integration_fixture::default_genesis_state()
+                  .accounts(witness1, witness2, witness3, witness4, witness5, witness6, witness7, witness8, witness9,
+                            witness10, witness11, witness12, witness13, witness14, witness15, witness16, witness17,
+                            witness18, witness19, witness20, witness21, witness22)
+                  .witnesses(witness1, witness2, witness3, witness4, witness5, witness6, witness7, witness8, witness9,
+                             witness10, witness11, witness12, witness13, witness14, witness15, witness16, witness17,
+                             witness18, witness19, witness20, witness21, witness22)
+                  .generate();
+
+    db.open(path, path, TEST_SHARED_MEM_SIZE_10MB, chainbase::database::read_write, genesis);
+
+    db.obtain_service<dbs_witness_schedule>().update(
+        [&](witness_schedule_object& wso) { wso.num_scheduled_witnesses = 21; });
+}
+
+BOOST_AUTO_TEST_CASE(fork_blocks2)
+{
+    try
+    {
+        BOOST_TEST_MESSAGE("Test fork_blocks2");
+
+        fc::temp_directory data_dir1(graphene::utilities::temp_directory_path());
+        fc::temp_directory data_dir2(graphene::utilities::temp_directory_path());
+        fc::temp_directory data_dir3(graphene::utilities::temp_directory_path());
+
+        // TODO This test needs 6-7 ish witnesses prior to fork
+
+        auto init_account_priv_key = fc::ecc::private_key::regenerate(fc::sha256::hash(std::string(TEST_INIT_KEY)));
+
+        database db1(database::opt_default);
+        db_setup_and_open2(db1, data_dir1.path(), init_account_priv_key);
+        database db2(database::opt_default);
+        db_setup_and_open3(db2, data_dir2.path(), init_account_priv_key);
+        database db3(database::opt_default);
+        db_setup_and_open2(db3, data_dir3.path(), init_account_priv_key);
+
+        auto init_block_num = 0u;
+
+        for (; init_block_num < 20; ++init_block_num)
+        {
+            BOOST_TEST_MESSAGE("Push common block");
+
+            auto b = db1.generate_block(db1.get_slot_time(1), db1.get_scheduled_witness(1), init_account_priv_key,
+                                        database::skip_nothing);
+            print_block(b);
+
+            try
+            {
+                PUSH_BLOCK(db2, b);
+            }
+            FC_CAPTURE_AND_RETHROW(("db2"));
+            try
+            {
+                PUSH_BLOCK(db3, b);
+            }
+            FC_CAPTURE_AND_RETHROW(("db3"));
+
+            BOOST_CHECK_EQUAL(db2.head_block_num(), init_block_num + 1);
+            BOOST_CHECK_EQUAL(db2.head_block_id().str(), db1.head_block_id().str());
+            BOOST_CHECK_EQUAL(db3.head_block_num(), init_block_num + 1);
+            BOOST_CHECK_EQUAL(db3.head_block_id().str(), db1.head_block_id().str());
+        }
+
+        BOOST_TEST_MESSAGE("Push block level 1 from db1");
+        {
+            auto witness = db1.get_scheduled_witness(1);
+            auto block_time = db1.get_slot_time(1);
+
+            auto b1 = db1.generate_block(block_time, witness, init_account_priv_key, database::skip_nothing);
+
+            print_block(b1);
+
+            try
+            {
+                PUSH_BLOCK(db3, b1);
+            }
+            FC_CAPTURE_AND_RETHROW(("db3 b1"));
+
+            BOOST_CHECK_EQUAL(db3.head_block_num(), init_block_num + 1);
+            BOOST_CHECK_EQUAL(db3.head_block_time().to_iso_string(), block_time.to_iso_string());
+            BOOST_REQUIRE_EQUAL(b1.witness, witness);
+        }
+
+        BOOST_TEST_MESSAGE("Push block level 1 from db2");
+        {
+            auto witness = db2.get_scheduled_witness(1);
+            auto block_time = db2.get_slot_time(1);
+            auto concurrent_block_time = db1.head_block_time();
+
+            auto b2 = db2.generate_block(block_time, witness, init_account_priv_key, database::skip_nothing);
+
+            print_block(b2);
+
+            try
+            {
+                PUSH_BLOCK(db3, b2);
+            }
+            FC_CAPTURE_AND_RETHROW(("db3 b2"));
+
+            BOOST_CHECK_EQUAL(db3.head_block_num(), init_block_num + 1);
+            BOOST_CHECK_EQUAL(db3.head_block_time().to_iso_string(), concurrent_block_time.to_iso_string());
+            BOOST_REQUIRE_EQUAL(b2.witness, witness);
+        }
+
+        BOOST_TEST_MESSAGE("Push block level 2 from db1");
+        {
+            auto witness = db1.get_scheduled_witness(1);
+            auto block_time = db1.get_slot_time(1);
+
+            auto b1 = db1.generate_block(block_time, witness, init_account_priv_key, database::skip_nothing);
+
+            print_block(b1);
+
+            try
+            {
+                PUSH_BLOCK(db3, b1);
+            }
+            FC_CAPTURE_AND_RETHROW(("db3 b1"));
+
+            BOOST_CHECK_EQUAL(db3.head_block_num(), init_block_num + 2);
+            BOOST_CHECK_EQUAL(db3.head_block_time().to_iso_string(), block_time.to_iso_string());
+            BOOST_REQUIRE_EQUAL(b1.witness, witness);
+        }
+
+        BOOST_TEST_MESSAGE("Push block level 3 from db2");
+        {
+            auto witness = db2.get_scheduled_witness(2);
+            auto block_time = db2.get_slot_time(2);
+            auto concurrent_block_time = db1.head_block_time();
+
+            auto b2 = db2.generate_block(block_time, witness, init_account_priv_key, database::skip_nothing);
+
+            print_block(b2);
+
+            try
+            {
+                PUSH_BLOCK(db3, b2);
+            }
+            FC_CAPTURE_AND_RETHROW(("db3 b2"));
+
+            BOOST_CHECK_EQUAL(db3.head_block_num(), init_block_num + 2);
+            BOOST_CHECK_EQUAL(db3.head_block_time().to_iso_string(), concurrent_block_time.to_iso_string());
+            BOOST_REQUIRE_EQUAL(b2.witness, witness);
+        }
+
+        BOOST_TEST_MESSAGE("Push block level 4 from db2");
+        {
+            auto witness = db2.get_scheduled_witness(1);
+            auto block_time = db2.get_slot_time(1);
+
+            auto b2 = db2.generate_block(block_time, witness, init_account_priv_key, database::skip_nothing);
+
+            print_block(b2);
+
+            try
+            {
+                PUSH_BLOCK(db3, b2);
+            }
+            FC_CAPTURE_AND_RETHROW(("db3 b2"));
+
+            BOOST_CHECK_EQUAL(db3.head_block_num(), init_block_num + 3);
+            BOOST_CHECK_EQUAL(db3.head_block_time().to_iso_string(), block_time.to_iso_string());
+            BOOST_REQUIRE_EQUAL(b2.witness, witness);
+        }
+    }
+    catch (fc::exception& e)
+    {
+        edump((e.to_detail_string()));
+        throw;
+    }
+}
+
+BOOST_AUTO_TEST_CASE(fork_blocks3)
+{
+    try
+    {
+        BOOST_TEST_MESSAGE("Test fork_blocks3");
+
+        fc::temp_directory data_dir1(graphene::utilities::temp_directory_path());
+        fc::temp_directory data_dir2(graphene::utilities::temp_directory_path());
+        fc::temp_directory data_dir3(graphene::utilities::temp_directory_path());
+
+        // TODO This test needs 6-7 ish witnesses prior to fork
+
+        auto init_account_priv_key = fc::ecc::private_key::regenerate(fc::sha256::hash(std::string(TEST_INIT_KEY)));
+
+        database db1(database::opt_default);
+        db_setup_and_open3(db1, data_dir1.path(), init_account_priv_key);
+        database db2(database::opt_default);
+        db_setup_and_open2(db2, data_dir2.path(), init_account_priv_key);
+        database db3(database::opt_default);
+        db_setup_and_open2(db3, data_dir3.path(), init_account_priv_key);
+
+        auto init_block_num = 0u;
+
+        for (; init_block_num < 1; ++init_block_num)
+        {
+            BOOST_TEST_MESSAGE("Push common block");
+
+            auto b = db1.generate_block(db1.get_slot_time(1), db1.get_scheduled_witness(1), init_account_priv_key,
+                                        database::skip_nothing);
+            print_block(b);
+
+            try
+            {
+                PUSH_BLOCK(db2, b);
+            }
+            FC_CAPTURE_AND_RETHROW(("db2"));
+            try
+            {
+                PUSH_BLOCK(db3, b);
+            }
+            FC_CAPTURE_AND_RETHROW(("db3"));
+
+            BOOST_CHECK_EQUAL(db2.head_block_num(), init_block_num + 1);
+            BOOST_CHECK_EQUAL(db2.head_block_id().str(), db1.head_block_id().str());
+            BOOST_CHECK_EQUAL(db3.head_block_num(), init_block_num + 1);
+            BOOST_CHECK_EQUAL(db3.head_block_id().str(), db1.head_block_id().str());
+        }
+
+        BOOST_TEST_MESSAGE("Push block level 1 from db1");
+        {
+            auto witness = db1.get_scheduled_witness(1);
+            auto block_time = db1.get_slot_time(1);
+
+            auto b1 = db1.generate_block(block_time, witness, init_account_priv_key, database::skip_nothing);
+
+            print_block(b1);
+
+            try
+            {
+                PUSH_BLOCK(db3, b1);
+            }
+            FC_CAPTURE_AND_RETHROW(("db3 b1"));
+
+            BOOST_CHECK_EQUAL(db3.head_block_num(), init_block_num + 1);
+            BOOST_CHECK_EQUAL(db3.head_block_time().to_iso_string(), block_time.to_iso_string());
+            BOOST_REQUIRE_EQUAL(b1.witness, witness);
+        }
+
+        BOOST_TEST_MESSAGE("Push block level 2 from db2");
+        {
+            auto witness = db2.get_scheduled_witness(2);
+            auto block_time = db2.get_slot_time(2);
+            auto concurrent_block_time = db1.head_block_time();
+
+            auto b2 = db2.generate_block(block_time, witness, init_account_priv_key, database::skip_nothing);
+
+            print_block(b2);
+
+            try
+            {
+                PUSH_BLOCK(db3, b2);
+            }
+            FC_CAPTURE_AND_RETHROW(("db3 b2"));
+
+            BOOST_CHECK_EQUAL(db3.head_block_num(), init_block_num + 1);
+            BOOST_CHECK_EQUAL(db3.head_block_time().to_iso_string(), concurrent_block_time.to_iso_string());
+            BOOST_REQUIRE_EQUAL(b2.witness, witness);
+        }
+
+        BOOST_TEST_MESSAGE("Push block level 3 from db1");
+        {
+            auto witness = db1.get_scheduled_witness(2);
+            auto block_time = db1.get_slot_time(2);
+
+            auto b1 = db1.generate_block(block_time, witness, init_account_priv_key, database::skip_nothing);
+
+            print_block(b1);
+
+            try
+            {
+                PUSH_BLOCK(db3, b1);
+            }
+            FC_CAPTURE_AND_RETHROW(("db3 b1"));
+
+            BOOST_CHECK_EQUAL(db3.head_block_num(), init_block_num + 2);
+            BOOST_CHECK_EQUAL(db3.head_block_time().to_iso_string(), block_time.to_iso_string());
+            BOOST_REQUIRE_EQUAL(b1.witness, witness);
+        }
+
+        BOOST_TEST_MESSAGE("Push block level 4 from db1");
+        {
+            auto witness = db1.get_scheduled_witness(2);
+            auto block_time = db1.get_slot_time(2);
+
+            auto b1 = db1.generate_block(block_time, witness, init_account_priv_key, database::skip_nothing);
+
+            print_block(b1);
+
+            try
+            {
+                PUSH_BLOCK(db3, b1);
+            }
+            FC_CAPTURE_AND_RETHROW(("db3 b1"));
+
+            BOOST_CHECK_EQUAL(db3.head_block_num(), init_block_num + 3);
+            BOOST_CHECK_EQUAL(db3.head_block_time().to_iso_string(), block_time.to_iso_string());
+            BOOST_REQUIRE_EQUAL(b1.witness, witness);
+        }
+    }
+    catch (fc::exception& e)
+    {
+        edump((e.to_detail_string()));
+        throw;
+    }
 }
 
 /*

@@ -104,7 +104,7 @@ void database::update_witness_schedule()
             }
         }
 
-        dlog("number of active witnesses is (${active_witnesses}), max number is (${SCORUM_MAX_WITNESSES})",
+        ilog("number of active witnesses is (${active_witnesses}), max number is (${SCORUM_MAX_WITNESSES})",
              ("active_witnesses", active_witnesses.size())("SCORUM_MAX_WITNESSES", SCORUM_MAX_WITNESSES));
 
         /// Update virtual schedule of processed witnesses
@@ -127,7 +127,7 @@ void database::update_witness_schedule()
         }
 
         witness_schedule::printable_schedule prev_schedule;
-        if (fc::logger::get(DEFAULT_LOGGER).is_enabled(fc::log_level::debug))
+        // if (fc::logger::get(DEFAULT_LOGGER).is_enabled(fc::log_level::debug))
         {
             prev_schedule = witness_schedule::get_witness_schedule(schedule_service.get(), witness_service);
         }
@@ -165,7 +165,7 @@ void database::update_witness_schedule()
             _wso.current_virtual_time = new_virtual_time;
         });
 
-        dlog("{\"prev_schedule\": ${prev_schedule}, \"new_schedule\": ${new_schedule}}",
+        ilog("{\"prev_schedule\": ${prev_schedule}, \"new_schedule\": ${new_schedule}}",
              ("prev_schedule", prev_schedule)(
                  "new_schedule", witness_schedule::get_witness_schedule(schedule_service.get(), witness_service)));
 
