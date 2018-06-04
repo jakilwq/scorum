@@ -19,7 +19,7 @@ boost::unit_test::test_suite* init_unit_test_suite(int argc, char* argv[])
     fc::logging_config log_conf;
 
     fc::variants c;
-    c.push_back(fc::mutable_variant_object("level", "debug")("color", "green"));
+    c.push_back(fc::mutable_variant_object("level", "info")("color", "green"));
     c.push_back(fc::mutable_variant_object("level", "warn")("color", "brown"));
     c.push_back(fc::mutable_variant_object("level", "error")("color", "red"));
 
@@ -30,7 +30,7 @@ boost::unit_test::test_suite* init_unit_test_suite(int argc, char* argv[])
 
     fc::logger_config lg;
     lg.name = "default";
-    lg.level = fc::log_level::warn;
+    lg.level = fc::log_level::debug;
     lg.appenders.push_back("stderr");
     log_conf.loggers.push_back(lg);
     fc::configure_logging(log_conf);

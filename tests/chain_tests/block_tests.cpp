@@ -1151,6 +1151,113 @@ BOOST_AUTO_TEST_CASE(fork_blocks3)
     }
 }
 
+signed_block generate_block(database& db, scorum::protocol::private_key_type& priv_key, unsigned miss_blocks = 0)
+{
+    auto slot_num = 1 + miss_blocks;
+    auto b = db.generate_block(db.get_slot_time(slot_num), db.get_scheduled_witness(slot_num), priv_key,
+                               database::skip_nothing);
+    print_block(b);
+    return b;
+}
+
+void push_block(database& db, const signed_block& b)
+{
+    try
+    {
+        PUSH_BLOCK(db, b);
+    }
+    FC_CAPTURE_AND_RETHROW();
+}
+
+BOOST_AUTO_TEST_CASE(fork_blocks4)
+{
+    try
+    {
+        BOOST_TEST_MESSAGE("Test fork_blocks4");
+
+        fc::temp_directory data_dir1(graphene::utilities::temp_directory_path());
+        fc::temp_directory data_dir2(graphene::utilities::temp_directory_path());
+        fc::temp_directory data_dir3(graphene::utilities::temp_directory_path());
+
+        // TODO This test needs 6-7 ish witnesses prior to fork
+
+        auto init_account_priv_key = fc::ecc::private_key::regenerate(fc::sha256::hash(std::string(TEST_INIT_KEY)));
+
+        database db1(database::opt_default);
+        db_setup_and_open2(db1, data_dir1.path(), init_account_priv_key);
+        database db2(database::opt_default);
+        db_setup_and_open2(db2, data_dir2.path(), init_account_priv_key);
+        database db3(database::opt_default);
+        db_setup_and_open2(db3, data_dir3.path(), init_account_priv_key);
+
+        for (auto init_block_num = 0u; init_block_num < 20; ++init_block_num)
+        {
+            BOOST_TEST_MESSAGE("Push common block");
+
+            auto b = generate_block(db1, init_account_priv_key);
+            push_block(db2, b);
+            push_block(db3, b);
+        }
+
+        BOOST_TEST_MESSAGE("\nGenerating blocks for DB1");
+        auto b11 = generate_block(db1, init_account_priv_key, 1);
+        auto b12 = generate_block(db1, init_account_priv_key, 0);
+        auto b13 = generate_block(db1, init_account_priv_key, 0);
+        auto b14 = generate_block(db1, init_account_priv_key, 0);
+        auto b15 = generate_block(db1, init_account_priv_key, 0);
+        auto b16 = generate_block(db1, init_account_priv_key, 0);
+
+        BOOST_TEST_MESSAGE("\nGenerating blocks for DB2");
+        auto b21 = generate_block(db2, init_account_priv_key, 0);
+        auto b22 = generate_block(db2, init_account_priv_key, 8);
+        auto b23 = generate_block(db2, init_account_priv_key, 1);
+        auto b24 = generate_block(db2, init_account_priv_key, 7);
+        auto b25 = generate_block(db2, init_account_priv_key, 0);
+
+        BOOST_TEST_MESSAGE("-------------------------------------------------------------------------------------------"
+                           "-----------------");
+
+        BOOST_TEST_MESSAGE("\nPushing blocks to DB3");
+        BOOST_TEST_MESSAGE("Push block 21");
+        push_block(db3, b21);
+
+        BOOST_TEST_MESSAGE("Push block 11");
+        push_block(db3, b11);
+
+        BOOST_TEST_MESSAGE("\nPush block 12 and triggering schedule update from DB1");
+        push_block(db3, b12);
+
+        BOOST_TEST_MESSAGE("\nPush block 22");
+        push_block(db3, b22);
+
+        BOOST_TEST_MESSAGE("\nPush block 23 and triggering schedule update from DB2");
+        push_block(db3, b23);
+
+        BOOST_TEST_MESSAGE("\nPush block 13");
+        push_block(db3, b13);
+
+        BOOST_TEST_MESSAGE("\nPush block 14 and triggering schedule update from DB1");
+        push_block(db3, b14);
+
+        BOOST_TEST_MESSAGE("\nPush block 24");
+        push_block(db3, b24);
+
+        BOOST_TEST_MESSAGE("\nPush block 25 and triggering schedule update from DB2");
+        push_block(db3, b25);
+
+        BOOST_TEST_MESSAGE("\nPush block 15");
+        push_block(db3, b15);
+
+        BOOST_TEST_MESSAGE("\nPush block 16 and triggering schedule update from DB1");
+        push_block(db3, b16);
+    }
+    catch (fc::exception& e)
+    {
+        edump((e.to_detail_string()));
+        throw;
+    }
+}
+
 /*
 
 BOOST_FIXTURE_TEST_CASE( hardfork_test, database_integration_fixture )

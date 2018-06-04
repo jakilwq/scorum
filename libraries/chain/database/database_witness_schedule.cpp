@@ -56,6 +56,8 @@ void database::update_witness_schedule()
 {
     database& _db = (*this);
 
+    wlog("_________UPDATE WITNESS SCHEDULE!!!!!!!!!!!!  head_block_num == ${h}", ("h", _db.head_block_num()));
+
     if ((_db.head_block_num() % SCORUM_MAX_WITNESSES) == 0)
     {
         auto& schedule_service = _db.obtain_service<dbs_witness_schedule>();
