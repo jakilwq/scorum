@@ -5,7 +5,14 @@
 
 #include <scorum/chain/schema/scorum_objects.hpp>
 #include <scorum/blockchain_history/schema/operation_objects.hpp>
+
 #include <scorum/witness/witness_plugin.hpp>
+#include <scorum/account_by_key/account_by_key_plugin.hpp>
+#include <scorum/account_statistics/account_statistics_plugin.hpp>
+#include <scorum/blockchain_history/blockchain_history_plugin.hpp>
+#include <scorum/blockchain_monitoring/blockchain_monitoring_plugin.hpp>
+#include <scorum/tags/tags_plugin.hpp>
+
 #include <scorum/chain/genesis/genesis_state.hpp>
 #include <scorum/chain/services/account.hpp>
 
@@ -15,6 +22,9 @@
 #include <iostream>
 #include <iomanip>
 #include <sstream>
+#include <algorithm>
+
+#include <boost/algorithm/string.hpp>
 
 #include "database_integration.hpp"
 
@@ -59,7 +69,8 @@ genesis_state_type database_integration_fixture::create_default_genesis_state()
     return default_genesis_state().generate();
 }
 
-void database_integration_fixture::open_database(const genesis_state_type& genesis)
+void database_integration_fixture::open_database(const genesis_state_type& genesis,
+                                                 const std::string& additional_plugins /*= ""*/)
 {
     FC_ASSERT(!opened);
 
@@ -79,17 +90,33 @@ void database_integration_fixture::open_database(const genesis_state_type& genes
         }
 
         db_plugin = app.register_plugin<scorum::plugin::debug_node::debug_node_plugin>();
-        auto wit_plugin = app.register_plugin<scorum::witness::witness_plugin>();
-
-        boost::program_options::variables_map options;
-
         db_plugin->logging = false;
-        db_plugin->plugin_initialize(options);
-        wit_plugin->plugin_initialize(options);
+        app.register_plugin<scorum::witness::witness_plugin>();
+        app.register_plugin<scorum::account_by_key::account_by_key_plugin>();
+        app.register_plugin<scorum::account_statistics::account_statistics_plugin>();
+        app.register_plugin<scorum::blockchain_monitoring::blockchain_monitoring_plugin>();
+        app.register_plugin<scorum::blockchain_history::blockchain_history_plugin>();
+        app.register_plugin<scorum::tags::tags_plugin>();
+
+        namespace bpo = boost::program_options;
+        bpo::variables_map options;
+        bpo::options_description options_descr, _;
+        app.set_program_options(options_descr, _);
+        bpo::store(bpo::parse_command_line(argc, argv, options_descr), options);
+
+        app.initialize(options);
+        std::vector<std::string> base_plugin_names{ "witness", "debug_node" }, additional_plugin_names, plugin_names;
+        boost::split(additional_plugin_names, additional_plugins, boost::is_any_of(" \t,"));
+        std::sort(additional_plugin_names.begin(), additional_plugin_names.end(), std::less<std::string>());
+        std::sort(base_plugin_names.begin(), base_plugin_names.end(), std::less<std::string>());
+        std::set_union(additional_plugin_names.begin(), additional_plugin_names.end(), base_plugin_names.begin(),
+                       base_plugin_names.end(), std::back_inserter(plugin_names));
+        options.at("enable-plugin").value() = plugin_names;
+        app.initialize_plugins(options);
 
         open_database_impl(genesis);
 
-        db_plugin->plugin_startup();
+        app.startup_plugins();
 
         validate_database();
     }

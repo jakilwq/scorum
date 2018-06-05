@@ -70,7 +70,7 @@ void save_index_section(std::ofstream& fstream, chainbase::db_state& state, cons
     fc::raw::pack(check_enc, section.name);
     fc::raw::pack(fstream, check_enc.result());
 
-    state.for_each_index_key([&](int index_id) {
+    state.for_each_index_key([&](uint16_t index_id) {
         bool initialized = false;
         auto v = section.get_object_type_variant(index_id, initialized);
         // checking because static variant interpret uninitialized state like first type

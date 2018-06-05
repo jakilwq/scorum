@@ -170,6 +170,11 @@ public:
         return get_mutable_index<index_type>().emplace(std::forward<Constructor>(con));
     }
 
+    size_t get_indexes_size() const
+    {
+        return _index_map.size();
+    }
+
 protected:
     /**
     * This is a full map (size 2^16) of all possible index designed for constant time lookup

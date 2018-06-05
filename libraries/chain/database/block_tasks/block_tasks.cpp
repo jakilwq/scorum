@@ -25,9 +25,9 @@ void block_task_context::notify_save_snapshot(std::ofstream& fs)
 {
     _vops.notify_save_snapshot(fs);
 }
-void block_task_context::notify_load_snapshot(std::ifstream& fs)
+void block_task_context::notify_load_snapshot(std::ifstream& fs, scorum::snapshot::index_ids_type& ids)
 {
-    _vops.notify_load_snapshot(fs);
+    _vops.notify_load_snapshot(fs, ids);
 }
 
 } // database_ns

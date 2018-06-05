@@ -6,10 +6,17 @@
 
 #include <fc/static_variant.hpp>
 #include <fc/fixed_string.hpp>
-
 #include <scorum/snapshot/serializer_extensions.hpp>
 
 #include <chainbase/chain_object.hpp>
+
+#include <boost/container/flat_set.hpp>
+
+namespace scorum {
+namespace snapshot {
+using index_ids_type = fc::flat_set<uint16_t>;
+}
+}
 
 #define SCORUM_OBJECT_TYPE_EXTRACTION_MAKE_TYPE(elem) get_object_type<BOOST_PP_CAT(elem, _object_type)>
 

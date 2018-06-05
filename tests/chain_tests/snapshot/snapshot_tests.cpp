@@ -31,17 +31,6 @@ struct snapshot_fixture : public database_fixture::database_trx_integration_fixt
         snapshot_saved_for_plugin = true;
     }
 
-    fc::path get_snapshot_path(const fc::path& snapshot_dir)
-    {
-        std::stringstream snapshot_name;
-        snapshot_name << dprops_service.get().time.to_iso_string();
-        snapshot_name << "-";
-        snapshot_name << dprops_service.get().head_block_number;
-        snapshot_name << ".bin";
-
-        return snapshot_dir / snapshot_name.str();
-    }
-
     bool snapshot_saved_for_plugin = false;
     dynamic_global_property_service_i& dprops_service;
     snapshot_service_i& snapshot_service;
@@ -60,21 +49,6 @@ BOOST_AUTO_TEST_CASE(dont_make_snapshot_with_no_snapshot_dir)
     BOOST_CHECK_EQUAL(snapshot_saved_for_plugin, false);
 }
 
-BOOST_AUTO_TEST_CASE(make_snapshot_with_snapshot_dir)
-{
-    fc::path dir = fc::temp_directory(graphene::utilities::temp_directory_path()).path();
-    db.set_snapshot_dir(dir);
-    db.schedule_snapshot_task();
-
-    BOOST_CHECK_EQUAL(snapshot_service.is_snapshot_scheduled(), true);
-
-    generate_block();
-
-    BOOST_CHECK_EQUAL(snapshot_saved_for_plugin, true);
-
-    BOOST_CHECK_EQUAL(snapshot_service.is_snapshot_scheduled(), false);
-}
-
 BOOST_AUTO_TEST_CASE(save_and_load_snapshot_for_genesis_state)
 {
     using namespace scorum::chain::database_ns;
@@ -85,7 +59,8 @@ BOOST_AUTO_TEST_CASE(save_and_load_snapshot_for_genesis_state)
 
     BOOST_CHECK_EQUAL(snapshot_service.is_snapshot_scheduled(), true);
 
-    fc::path snapshot_file = get_snapshot_path(snapshot_service.get_snapshot_dir());
+    fc::path snapshot_file
+        = save_scheduled_snapshot::get_snapshot_path(dprops_service, snapshot_service.get_snapshot_dir());
 
     fc::remove_all(snapshot_file);
 
@@ -95,6 +70,10 @@ BOOST_AUTO_TEST_CASE(save_and_load_snapshot_for_genesis_state)
                            static_cast<database_virtual_operations_emmiter_i&>(db), db.head_block_num());
 
     BOOST_REQUIRE_NO_THROW(saver.apply(ctx));
+
+    BOOST_CHECK_EQUAL(snapshot_saved_for_plugin, true);
+
+    BOOST_CHECK_EQUAL(snapshot_service.is_snapshot_scheduled(), false);
 
     BOOST_REQUIRE(fc::exists(snapshot_file));
 

@@ -979,9 +979,9 @@ void database::notify_save_snapshot(std::ofstream& fs)
     SCORUM_TRY_NOTIFY(save_snapshot, fs);
 }
 
-void database::notify_load_snapshot(std::ifstream& fs)
+void database::notify_load_snapshot(std::ifstream& fs, scorum::snapshot::index_ids_type& ids)
 {
-    SCORUM_TRY_NOTIFY(load_snapshot, fs);
+    SCORUM_TRY_NOTIFY(load_snapshot, fs, ids);
 }
 
 inline void database::push_hf_operation(const operation& op)

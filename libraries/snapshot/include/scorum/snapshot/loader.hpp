@@ -4,6 +4,7 @@
 #include <chainbase/db_state.hpp>
 
 #include <scorum/snapshot/data_struct_hash.hpp>
+#include <scorum/snapshot/get_types_by_id.hpp>
 
 //#include <fc/io/json.hpp>
 
@@ -91,7 +92,10 @@ private:
 };
 
 template <class Section>
-void load_index_section(std::ifstream& fstream, chainbase::db_state& state, const Section& section)
+void load_index_section(std::ifstream& fstream,
+                        chainbase::db_state& state,
+                        scorum::snapshot::index_ids_type& loaded_idxs,
+                        const Section& section)
 {
     fc::ripemd160 check;
 
@@ -102,12 +106,15 @@ void load_index_section(std::ifstream& fstream, chainbase::db_state& state, cons
 
     FC_ASSERT(check_enc.result() == check);
 
-    state.for_each_index_key([&](int index_id) {
+    state.for_each_index_key([&](uint16_t index_id) {
         bool initialized = false;
         auto v = section.get_object_type_variant(index_id, initialized);
         // checking because static variant interpret uninitialized state like first type
         if (initialized)
+        {
             v.visit(load_index_visitor<Section>(fstream, state));
+            loaded_idxs.insert(index_id);
+        }
     });
 }
 }

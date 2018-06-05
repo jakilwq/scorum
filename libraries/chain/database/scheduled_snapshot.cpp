@@ -3,7 +3,6 @@
 #include <scorum/chain/database/database.hpp>
 #include <chainbase/db_state.hpp>
 
-#include <scorum/chain/services/dynamic_global_property.hpp>
 #include <scorum/chain/services/snapshot.hpp>
 #include <scorum/chain/services/blocks_story.hpp>
 
@@ -13,8 +12,10 @@
 
 #include <fc/io/raw.hpp>
 
+#include <scorum/snapshot/config.hpp>
 #include <scorum/snapshot/loader.hpp>
 #include <scorum/snapshot/saver.hpp>
+
 #include <scorum/chain/database/snapshot_types.hpp>
 
 namespace scorum {
@@ -35,17 +36,6 @@ public:
     {
     }
 
-    fc::path get_snapshot_path(const fc::path& snapshot_dir)
-    {
-        std::stringstream snapshot_name;
-        snapshot_name << dprops_service.get().time.to_iso_string();
-        snapshot_name << "-";
-        snapshot_name << dprops_service.get().head_block_number;
-        snapshot_name << ".bin";
-
-        return snapshot_dir / snapshot_name.str();
-    }
-
     void save(const fc::path& snapshot_path, database_virtual_operations_emmiter_i& vops)
     {
         fc::remove_all(snapshot_path);
@@ -58,6 +48,7 @@ public:
         FC_ASSERT(b.valid(), "Invalid block header");
 
         snapshot_header header;
+        header.version = SCORUM_SNAPSHOT_SERIALIZER_VER;
         header.head_block_number = b->block_num();
         header.head_block_digest = b->digest();
         header.chainbase_flags = chainbase::database::read_write;
@@ -75,6 +66,7 @@ public:
         snapshot_stream.open(snapshot_path.generic_string(), std::ios::binary);
 
         snapshot_header header = load_header(snapshot_stream);
+        FC_ASSERT(header.version == SCORUM_SNAPSHOT_SERIALIZER_VER);
 
         snapshot_stream.close();
 
@@ -101,12 +93,20 @@ public:
         ilog("Loading snapshot for block ${n} from file ${f}.",
              ("n", header.head_block_number)("f", snapshot_path.generic_string()));
 
-        scorum::snapshot::load_index_section(snapshot_stream, _state, base_section());
+        scorum::snapshot::index_ids_type loaded_idxs;
 
-        vops.notify_load_snapshot(snapshot_stream);
+        loaded_idxs.reserve(_state.get_indexes_size());
 
-        FC_ASSERT((uint64_t)snapshot_stream.tellg() == sz,
-                  "Not all indexes are loaded. Node configuration does not match snapshot.");
+        scorum::snapshot::load_index_section(snapshot_stream, _state, loaded_idxs, base_section());
+
+        vops.notify_load_snapshot(snapshot_stream, loaded_idxs);
+
+        FC_ASSERT(_state.get_indexes_size() == loaded_idxs.size(), "Not all indexes are loaded");
+
+        if ((uint64_t)snapshot_stream.tellg() != sz)
+        {
+            wlog("Not all indexes from snapshot are loaded. Node configuration does not match snapshot.");
+        }
 
         snapshot_stream.close();
     }
@@ -126,16 +126,29 @@ save_scheduled_snapshot::~save_scheduled_snapshot()
 {
 }
 
+fc::path save_scheduled_snapshot::get_snapshot_path(dynamic_global_property_service_i& dprops_service,
+                                                    const fc::path& snapshot_dir)
+{
+    std::stringstream snapshot_name;
+    snapshot_name << dprops_service.get().time.to_iso_string();
+    snapshot_name << "-";
+    snapshot_name << dprops_service.get().head_block_number;
+    snapshot_name << ".bin";
+
+    return snapshot_dir / snapshot_name.str();
+}
+
 void save_scheduled_snapshot::on_apply(block_task_context& ctx)
 {
     snapshot_service_i& snapshot_service = ctx.services().snapshot_service();
+    dynamic_global_property_service_i& dprops_service = ctx.services().dynamic_global_property_service();
 
     if (!snapshot_service.is_snapshot_scheduled())
         return;
 
     snapshot_service.clear_snapshot_schedule();
 
-    fc::path snapshot_path = _impl->get_snapshot_path(snapshot_service.get_snapshot_dir());
+    fc::path snapshot_path = get_snapshot_path(dprops_service, snapshot_service.get_snapshot_dir());
     try
     {
         ilog("Making snapshot for block ${n} to file ${f}.",

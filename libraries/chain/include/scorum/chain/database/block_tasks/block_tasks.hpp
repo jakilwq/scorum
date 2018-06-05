@@ -20,7 +20,7 @@ public:
 
     virtual void push_virtual_operation(const operation& op);
     virtual void notify_save_snapshot(std::ofstream&);
-    virtual void notify_load_snapshot(std::ifstream&);
+    virtual void notify_load_snapshot(std::ifstream&, scorum::snapshot::index_ids_type&);
 
     data_service_factory_i& services() const
     {

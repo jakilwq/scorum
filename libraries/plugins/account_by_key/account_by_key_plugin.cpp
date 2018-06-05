@@ -38,7 +38,7 @@ public:
     void update_key_lookup(const account_authority_object& a);
 
     void save_snapshot(std::ofstream& fs);
-    void load_snapshot(std::ifstream& fs);
+    void load_snapshot(std::ifstream& fs, scorum::snapshot::index_ids_type& loaded_idxs);
 
     flat_set<public_key_type> cached_keys;
     account_by_key_plugin& _self;
@@ -231,10 +231,10 @@ void account_by_key_plugin_impl::save_snapshot(std::ofstream& fs)
     scorum::snapshot::save_index_section<by_id>(fs, static_cast<db_state&>(db), account_by_key_section());
 }
 
-void account_by_key_plugin_impl::load_snapshot(std::ifstream& fs)
+void account_by_key_plugin_impl::load_snapshot(std::ifstream& fs, scorum::snapshot::index_ids_type& loaded_idxs)
 {
     chain::database& db = database();
-    scorum::snapshot::load_index_section(fs, static_cast<db_state&>(db), account_by_key_section());
+    scorum::snapshot::load_index_section(fs, static_cast<db_state&>(db), loaded_idxs, account_by_key_section());
 }
 
 void account_by_key_plugin_impl::pre_operation(const operation_notification& note)
@@ -255,6 +255,10 @@ account_by_key_plugin::account_by_key_plugin(scorum::app::application* app)
 {
 }
 
+account_by_key_plugin::~account_by_key_plugin()
+{
+}
+
 void account_by_key_plugin::plugin_set_program_options(boost::program_options::options_description& cli,
                                                        boost::program_options::options_description& cfg)
 {
@@ -270,7 +274,9 @@ void account_by_key_plugin::plugin_initialize(const boost::program_options::vari
         db.post_apply_operation.connect([&](const operation_notification& o) { my->post_operation(o); });
 
         db.save_snapshot.connect([&](std::ofstream& fs) { my->save_snapshot(fs); });
-        db.load_snapshot.connect([&](std::ifstream& fs) { my->load_snapshot(fs); });
+        db.load_snapshot.connect([&](std::ifstream& fs, scorum::snapshot::index_ids_type& loaded_idxs) {
+            my->load_snapshot(fs, loaded_idxs);
+        });
 
         db.add_plugin_index<key_lookup_index>();
     }

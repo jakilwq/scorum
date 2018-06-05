@@ -17,36 +17,7 @@
 #include <fstream>
 
 #include <fc/crypto/ripemd160.hpp>
-#include <fc/shared_buffer.hpp>
-
-namespace fc {
-namespace raw {
-template <typename Stream, typename Val> Stream& pack(Stream& stream, const boost::container::vector<Val>& vec)
-{
-    size_t sz = vec.size();
-    stream << sz;
-    for (size_t ci = 0; ci < sz; ++ci)
-    {
-        stream << (*vec.nth(ci));
-    }
-    return stream;
-}
-
-template <typename Stream, typename Val> Stream& unpack(Stream& stream, boost::container::vector<Val>& vec)
-{
-    size_t sz = 0;
-    stream >> sz;
-    vec.reserve(sz);
-    for (size_t ci = 0; ci < sz; ++ci)
-    {
-        Val v;
-        stream >> v;
-        vec.push_back(v);
-    }
-    return stream;
-}
-}
-}
+#include <fc/container/flat.hpp>
 
 namespace pack_unpack_reflected_obj_tests {
 
@@ -212,7 +183,7 @@ BOOST_AUTO_TEST_CASE(vector_binary_save_and_load)
 
 BOOST_AUTO_TEST_CASE(shared_buffer_save_and_load)
 {
-    using shared_buffer = boost::container::vector<char>;
+    using shared_buffer = fc::bip::vector<char>;
     shared_buffer v_buf_in;
 
     v_buf_in.push_back(0);
