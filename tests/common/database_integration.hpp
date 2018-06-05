@@ -30,8 +30,10 @@ public:
     static genesis_state_type create_default_genesis_state();
     static private_key_type generate_private_key(const std::string& seed);
 
-    void open_database(const genesis_state_type& genesis, const std::string& additional_plugins = "");
+    void open_database(const genesis_state_type& genesis);
     void open_database();
+
+    void close_database();
 
     void validate_database();
 

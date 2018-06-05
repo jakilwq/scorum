@@ -9,6 +9,8 @@
 #include <scorum/chain/services/snapshot.hpp>
 #include <scorum/chain/services/account.hpp>
 
+#include <scorum/blockchain_history/blockchain_history_plugin.hpp>
+
 #include <graphene/utilities/tempdir.hpp>
 #include <fc/filesystem.hpp>
 
@@ -19,7 +21,7 @@ using namespace scorum::chain;
 struct snapshot_plugins_fixture : public database_fixture::database_trx_integration_fixture
 {
     snapshot_plugins_fixture()
-        : sam("Sam")
+        : sam("sam")
         , dprops_service(db.dynamic_global_property_service())
         , snapshot_service(db.snapshot_service())
         , account_service(db.account_service())
@@ -41,7 +43,10 @@ BOOST_AUTO_TEST_CASE(saved_from_set1_and_loaded_to_set2_of_plugins)
 {
     using namespace scorum::chain::database_ns;
 
-    open_database(genesis_state, "account_by_key");
+    init_plugin<scorum::blockchain_history::blockchain_history_plugin>();
+    open_database();
+
+    generate_blocks(5);
 
     actor(initdelegate).create_account(sam);
     actor(initdelegate).give_scr(sam, feed_amount);
@@ -58,9 +63,9 @@ BOOST_AUTO_TEST_CASE(saved_from_set1_and_loaded_to_set2_of_plugins)
     //    fc::path snapshot_file
     //        = save_scheduled_snapshot::get_snapshot_path(dprops_service, snapshot_service.get_snapshot_dir());
 
-    db.close();
+    close_database();
 
-    open_database(genesis_state, "account_by_key");
+    open_database();
 
     // TODO
 }
