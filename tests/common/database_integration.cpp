@@ -110,22 +110,6 @@ void database_integration_fixture::open_database()
     open_database(genesis_state);
 }
 
-void database_integration_fixture::close_database()
-{
-    db_plugin.reset();
-
-    app.shutdown_plugins();
-    app.shutdown();
-
-    if (data_dir)
-    {
-        fc::remove_all(data_dir->path());
-        data_dir.reset();
-    }
-
-    opened = false;
-}
-
 void database_integration_fixture::validate_database()
 {
     try

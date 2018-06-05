@@ -9,6 +9,8 @@
 #include <scorum/chain/services/snapshot.hpp>
 #include <scorum/chain/services/account.hpp>
 
+#include <scorum/chain/schema/account_objects.hpp>
+
 #include <scorum/blockchain_history/blockchain_history_plugin.hpp>
 
 #include <graphene/utilities/tempdir.hpp>
@@ -18,23 +20,38 @@ namespace snapshot_plugins_tests {
 
 using namespace scorum::chain;
 
-struct snapshot_plugins_fixture : public database_fixture::database_trx_integration_fixture
+struct snapshot_plugins_fixture_impl : public database_fixture::database_trx_integration_fixture
 {
-    snapshot_plugins_fixture()
-        : sam("sam")
-        , dprops_service(db.dynamic_global_property_service())
+    snapshot_plugins_fixture_impl()
+        : dprops_service(db.dynamic_global_property_service())
         , snapshot_service(db.snapshot_service())
         , account_service(db.account_service())
     {
     }
 
-    Actor sam;
-
-    const int feed_amount = 1000;
-
     dynamic_global_property_service_i& dprops_service;
     snapshot_service_i& snapshot_service;
     account_service_i& account_service;
+};
+
+struct snapshot_plugins_fixture
+{
+    snapshot_plugins_fixture()
+        : sam("sam")
+    {
+        reset();
+    }
+
+    void reset()
+    {
+        fixture.reset(new snapshot_plugins_fixture_impl());
+    }
+
+    std::unique_ptr<snapshot_plugins_fixture_impl> fixture;
+
+    Actor sam;
+
+    const int feed_amount = 1000;
 };
 
 BOOST_FIXTURE_TEST_SUITE(snapshot_plugins_tests, snapshot_plugins_fixture)
@@ -43,31 +60,52 @@ BOOST_AUTO_TEST_CASE(saved_from_set1_and_loaded_to_set2_of_plugins)
 {
     using namespace scorum::chain::database_ns;
 
-    init_plugin<scorum::blockchain_history::blockchain_history_plugin>();
-    open_database();
+    fixture->init_plugin<scorum::blockchain_history::blockchain_history_plugin>();
+    fixture->open_database();
 
-    generate_blocks(5);
+    auto sz_idx_with_plugin = fixture->db.get_indexes_size();
 
-    actor(initdelegate).create_account(sam);
-    actor(initdelegate).give_scr(sam, feed_amount);
-    actor(initdelegate).give_sp(sam, feed_amount);
+    fixture->generate_block();
 
-    generate_block();
+    fixture->actor(fixture->initdelegate).create_account(sam);
+    fixture->actor(fixture->initdelegate).give_scr(sam, feed_amount);
+    fixture->actor(fixture->initdelegate).give_sp(sam, feed_amount);
+
+    fixture->generate_block();
 
     fc::path dir = fc::temp_directory(graphene::utilities::temp_directory_path()).path();
-    db.set_snapshot_dir(dir);
+    fixture->db.set_snapshot_dir(dir);
+    fixture->db.schedule_snapshot_task();
 
-    db.schedule_snapshot_task();
-    generate_block();
+    fc::path snapshot_file = save_scheduled_snapshot::get_snapshot_path(fixture->dprops_service,
+                                                                        fixture->snapshot_service.get_snapshot_dir());
 
-    //    fc::path snapshot_file
-    //        = save_scheduled_snapshot::get_snapshot_path(dprops_service, snapshot_service.get_snapshot_dir());
+    fc::remove_all(snapshot_file);
 
-    close_database();
+    save_scheduled_snapshot saver(fixture->db);
 
-    open_database();
+    block_task_context ctx(static_cast<data_service_factory&>(fixture->db),
+                           static_cast<database_virtual_operations_emmiter_i&>(fixture->db),
+                           fixture->db.head_block_num());
 
-    // TODO
+    BOOST_REQUIRE_NO_THROW(saver.apply(ctx));
+
+    reset();
+
+    fixture->open_database();
+
+    BOOST_REQUIRE_GT(sz_idx_with_plugin, fixture->db.get_indexes_size());
+
+    load_scheduled_snapshot loader(fixture->db);
+
+    BOOST_REQUIRE_NO_THROW(loader.load(snapshot_file));
+
+    BOOST_REQUIRE_NO_THROW(fixture->account_service.check_account_existence(sam.name));
+
+    const auto& loaded_account = fixture->account_service.get_account(sam.name);
+
+    BOOST_REQUIRE_GE(loaded_account.scorumpower, ASSET_SP(feed_amount));
+    BOOST_REQUIRE_EQUAL(loaded_account.balance, ASSET_SCR(feed_amount));
 }
 
 BOOST_AUTO_TEST_SUITE_END()

@@ -33,8 +33,6 @@ public:
     void open_database(const genesis_state_type& genesis);
     void open_database();
 
-    void close_database();
-
     void validate_database();
 
     void generate_block(uint32_t skip = 0, const private_key_type& key = initdelegate.private_key, int miss_blocks = 0);
@@ -71,9 +69,6 @@ public:
         }
     }
 
-protected:
-    virtual void open_database_impl(const genesis_state_type& genesis);
-
     template <class Plugin> std::shared_ptr<Plugin> init_plugin()
     {
         boost::program_options::variables_map options;
@@ -85,6 +80,9 @@ protected:
 
         return plugin;
     }
+
+protected:
+    virtual void open_database_impl(const genesis_state_type& genesis);
 
 private:
     bool opened = false;
