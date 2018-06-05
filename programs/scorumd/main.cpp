@@ -135,7 +135,12 @@ int main(int argc, char** argv)
         {
             fc::optional<fc::logging_config> logging_config = logger::load_logging_config_from_options(options);
             if (logging_config)
-                fc::configure_logging(*logging_config);
+            {
+                if (!fc::configure_logging(*logging_config))
+                {
+                    std::cerr << "Logger configured incorectly" << std::endl;
+                }
+            }
         }
         catch (const fc::exception&)
         {
