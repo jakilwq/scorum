@@ -21,6 +21,9 @@ using scorum::protocol::producer_reward_operation;
 
 void process_funds::on_apply(block_task_context& ctx)
 {
+    if (apply_schedule_crutches(ctx))
+        return;
+
     data_service_factory_i& services = ctx.services();
     account_service_i& account_service = services.account_service();
     reward_service_i& reward_service = services.reward_service();
@@ -75,6 +78,17 @@ void process_funds::on_apply(block_task_context& ctx)
     const auto producer_reward
         = account_service.create_scorumpower(account_service.get_account(cwit.owner), witness_reward);
     ctx.push_virtual_operation(producer_reward_operation(cwit.owner, producer_reward));
+}
+
+bool process_funds::apply_schedule_crutches(block_task_context& ctx)
+{
+    if (ctx.block_num() == 1650380 || // fix reward for headshot witness
+        ctx.block_num() == 1808664) // fix reward for addit-yury witness
+    {
+        return true;
+    }
+
+    return false;
 }
 }
 }
