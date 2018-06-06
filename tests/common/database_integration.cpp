@@ -5,7 +5,9 @@
 
 #include <scorum/chain/schema/scorum_objects.hpp>
 #include <scorum/blockchain_history/schema/operation_objects.hpp>
+
 #include <scorum/witness/witness_plugin.hpp>
+
 #include <scorum/chain/genesis/genesis_state.hpp>
 #include <scorum/chain/services/account.hpp>
 
@@ -15,6 +17,9 @@
 #include <iostream>
 #include <iomanip>
 #include <sstream>
+#include <algorithm>
+
+#include <boost/algorithm/string.hpp>
 
 #include "database_integration.hpp"
 

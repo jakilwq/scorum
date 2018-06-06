@@ -24,40 +24,67 @@ using namespace scorum;
 using scorum::protocol::version;
 namespace bpo = boost::program_options;
 
-void wait_stop()
+void wait_signals(app::application* node)
 {
-    fc::promise<int>::ptr exit_promise = new fc::promise<int>("UNIX Signal Handler");
-
-    int return_signal = 0;
-    fc::set_signal_handler(
-        [&exit_promise, &return_signal](int signal) {
-            return_signal = signal;
-            exit_promise->set_value(signal);
-        },
-        SIGINT);
-
-    fc::set_signal_handler(
-        [&exit_promise, &return_signal](int signal) {
-            return_signal = signal;
-            exit_promise->set_value(signal);
-        },
-        SIGTERM);
-
-    std::cout << std::flush;
-    std::cerr << std::flush;
-
-    exit_promise->wait(); // wait signal
-
-    switch (return_signal)
+    for (;;)
     {
-    case SIGINT:
-        elog("Caught SIGINT attempting to exit cleanly");
-        break;
-    case SIGTERM:
-        elog("Caught SIGTERM attempting to exit cleanly");
-        break;
-    default:
-        elog("Unexpected interruption");
+        fc::promise<int>::ptr handle_promise = new fc::promise<int>("UNIX Signal Handler");
+
+        int return_signal = 0;
+        fc::set_signal_handler(
+            [&handle_promise, &return_signal](int signal) {
+                return_signal = signal;
+                handle_promise->set_value(signal);
+            },
+            SIGINT);
+
+        fc::set_signal_handler(
+            [&handle_promise, &return_signal](int signal) {
+                return_signal = signal;
+                handle_promise->set_value(signal);
+            },
+            SIGTERM);
+
+        fc::set_signal_handler(
+            [&handle_promise, &return_signal](int signal) {
+                return_signal = signal;
+                handle_promise->set_value(signal);
+            },
+            SIGUSR1);
+
+        // TODO: add handlers to all possible aborting signals to close node correctly
+        fc::set_signal_handler(
+            [&handle_promise, &return_signal](int signal) {
+                return_signal = signal;
+                handle_promise->set_value(signal);
+            },
+            SIGUSR2);
+
+        std::cout << std::flush;
+        std::cerr << std::flush;
+
+        handle_promise->wait(); // wait signal
+
+        bool exit = true;
+        switch (return_signal)
+        {
+        case SIGINT:
+            elog("Caught SIGINT attempting to exit cleanly");
+            break;
+        case SIGTERM:
+            elog("Caught SIGTERM attempting to exit cleanly");
+            break;
+        case SIGUSR1:
+            elog("Caught SIGUSR1");
+            node->snapshot();
+            exit = false;
+            break;
+        default:
+            elog("Unexpected interruption. Signal #${s}", ("s", return_signal));
+        }
+
+        if (exit)
+            break;
     }
 }
 
@@ -175,7 +202,7 @@ int main(int argc, char** argv)
 
         std::cout << "Scorum network started.\n\n";
 
-        wait_stop();
+        wait_signals(node);
 
         node->shutdown_plugins();
         node->shutdown();

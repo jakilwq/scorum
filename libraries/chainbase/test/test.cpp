@@ -9,6 +9,8 @@
 
 #include <iostream>
 
+#include <scorum/typeid/get_types.hpp>
+
 using namespace boost::multi_index;
 
 // BOOST_TEST_SUITE( serialization_tests, database_default_integration_fixture )

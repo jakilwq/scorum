@@ -63,6 +63,7 @@
 #include <scorum/chain/database/block_tasks/process_contracts_expiration.hpp>
 #include <scorum/chain/database/block_tasks/process_account_registration_bonus_expiration.hpp>
 #include <scorum/chain/database/block_tasks/process_witness_reward_in_sp_migration.hpp>
+#include <scorum/chain/database/scheduled_snapshot.hpp>
 #include <scorum/chain/database/process_user_activity.hpp>
 
 #include <scorum/chain/evaluators/evaluator_registry.hpp>
@@ -217,7 +218,8 @@ void database::reindex(const fc::path& data_dir,
                        const fc::path& shared_mem_dir,
                        uint64_t shared_file_size,
                        uint32_t skip_flags,
-                       const genesis_state_type& genesis_state)
+                       const genesis_state_type& genesis_state,
+                       const fc::path& snapshot_file /*= fc::path()*/)
 {
     try
     {
@@ -232,6 +234,16 @@ void database::reindex(const fc::path& data_dir,
 
         auto last_block_num = _block_log.head()->block_num();
         uint log_interval_sz = std::max(last_block_num / 100u, 1000u);
+        using scorum::protocol::digest_type;
+        digest_type start_apply_block_digest;
+        if (snapshot_file != fc::path())
+        {
+            FC_ASSERT(fc::exists(snapshot_file), "Snapshot file does not exist");
+            auto header = database_ns::load_scheduled_snapshot(*this).load_header(snapshot_file);
+            FC_ASSERT(header.chainbase_flags != chainbase::database::read_write,
+                      "Snapshot saved from read-only node cannot applied to read/write node");
+            start_apply_block_digest = header.head_block_digest;
+        }
 
         ilog("Replaying ${n} blocks...", ("n", last_block_num));
 
@@ -239,14 +251,24 @@ void database::reindex(const fc::path& data_dir,
             auto itr = _block_log.read_block(0);
             while (itr.first.block_num() <= last_block_num)
             {
-                auto cur_block_num = itr.first.block_num();
+                signed_block& block = itr.first;
+                auto cur_block_num = block.block_num();
+
                 if (cur_block_num % log_interval_sz == 0 || cur_block_num == last_block_num)
                 {
                     double percent = (cur_block_num * double(100)) / last_block_num;
                     ilog("${p}% applied. ${m}M free.",
                          ("p", (boost::format("%5.2f") % percent).str())("m", get_free_memory() / (1024 * 1024)));
                 }
-                apply_block(itr.first, skip_flags);
+                if (start_apply_block_digest != digest_type() && block.digest() == start_apply_block_digest)
+                {
+                    database_ns::load_scheduled_snapshot(*this).load(snapshot_file);
+                    start_apply_block_digest = digest_type();
+                }
+                if (start_apply_block_digest == digest_type())
+                {
+                    apply_block(block, skip_flags);
+                }
                 if (cur_block_num != last_block_num)
                     itr = _block_log.read_block(itr.second);
                 else
@@ -303,6 +325,37 @@ void database::close()
         _fork_db.reset();
     }
     FC_CAPTURE_AND_RETHROW()
+}
+
+void database::set_snapshot_dir(const fc::path& dir)
+{
+    if (dir == fc::path())
+        return;
+    try
+    {
+        if (!fc::exists(dir))
+        {
+            fc::create_directories(dir);
+        }
+        _snapshot_dir = dir;
+    }
+    FC_CAPTURE_AND_RETHROW((dir))
+}
+
+bool database::is_snapshot_available() const
+{
+    return _snapshot_dir != fc::path();
+}
+
+void database::schedule_snapshot_task()
+{
+    if (is_snapshot_available())
+        _do_snapshot = true;
+}
+
+void database::clear_snapshot_schedule()
+{
+    _do_snapshot = false;
 }
 
 bool database::is_known_block(const block_id_type& id) const
@@ -921,6 +974,16 @@ inline void database::push_virtual_operation(const operation& op)
     }
 }
 
+void database::notify_save_snapshot(std::ofstream& fs)
+{
+    SCORUM_TRY_NOTIFY(save_snapshot, fs);
+}
+
+void database::notify_load_snapshot(std::ifstream& fs, scorum::snapshot::index_ids_type& ids)
+{
+    SCORUM_TRY_NOTIFY(load_snapshot, fs, ids);
+}
+
 inline void database::push_hf_operation(const operation& op)
 {
     FC_ASSERT(is_virtual_operation(op));
@@ -1419,6 +1482,8 @@ void database::_apply_block(const signed_block& next_block)
 
         // notify observers that the block has been applied
         notify_applied_block(next_block);
+
+        database_ns::save_scheduled_snapshot(*this).apply(ctx);
     }
     FC_CAPTURE_LOG_AND_RETHROW((next_block.block_num()))
 }

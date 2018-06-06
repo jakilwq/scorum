@@ -117,7 +117,8 @@ public:
                  const fc::path& shared_mem_dir,
                  uint64_t shared_file_size,
                  uint32_t skip_flags,
-                 const genesis_state_type& genesis_state);
+                 const genesis_state_type& genesis_state,
+                 const fc::path& snapshot_file = fc::path());
 
     /**
      * @brief wipe Delete database from disk, and potentially the raw chain as well.
@@ -128,6 +129,19 @@ public:
     void wipe(const fc::path& data_dir, const fc::path& shared_mem_dir, bool include_blocks);
 
     void close();
+
+    void set_snapshot_dir(const fc::path& dir);
+    bool is_snapshot_available() const;
+    void schedule_snapshot_task();
+    fc::path snapshot_dir() const
+    {
+        return _snapshot_dir;
+    }
+    bool is_snapshot_scheduled() const
+    {
+        return is_snapshot_available() && _do_snapshot;
+    }
+    void clear_snapshot_schedule();
 
     time_point_sec get_genesis_time() const;
 
@@ -193,6 +207,9 @@ public:
     inline void push_virtual_operation(const operation& op);
     inline void push_hf_operation(const operation& op);
 
+    virtual void notify_save_snapshot(std::ofstream&);
+    virtual void notify_load_snapshot(std::ifstream&, scorum::snapshot::index_ids_type&);
+
     void notify_pre_applied_block(const signed_block& block);
     void notify_applied_block(const signed_block& block);
     void notify_on_pending_transaction(const signed_transaction& tx);
@@ -205,6 +222,9 @@ public:
     fc::signal<void(const operation_notification&)> pre_apply_operation;
     fc::signal<void(const operation_notification&)> post_apply_operation;
     fc::signal<void(const signed_block&)> pre_applied_block;
+
+    fc::signal<void(std::ofstream&)> save_snapshot;
+    fc::signal<void(std::ifstream&, scorum::snapshot::index_ids_type&)> load_snapshot;
 
     /**
      *  This signal is emitted after all operations and virtual operation for a
@@ -401,6 +421,9 @@ private:
     uint32_t _last_free_gb_printed = 0;
 
     fc::time_point_sec _const_genesis_time; // should be const
+
+    fc::path _snapshot_dir;
+    bool _do_snapshot = false;
 };
 } // namespace chain
 } // namespace scorum
