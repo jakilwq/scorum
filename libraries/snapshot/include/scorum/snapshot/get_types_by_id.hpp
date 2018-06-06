@@ -15,6 +15,7 @@
 namespace scorum {
 namespace snapshot {
 using index_ids_type = fc::flat_set<uint16_t>;
+using object_ids_type = fc::flat_set<int64_t>;
 }
 }
 

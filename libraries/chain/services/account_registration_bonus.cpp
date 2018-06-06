@@ -32,5 +32,15 @@ dbs_account_registration_bonus::get_by_expiration_time(const fc::time_point_sec&
     }
     FC_CAPTURE_AND_RETHROW((until))
 }
+
+const account_registration_bonus_object&
+dbs_account_registration_bonus::get_by_owner(const account_name_type& owner) const
+{
+    try
+    {
+        return get_by<by_account>(owner);
+    }
+    FC_CAPTURE_AND_RETHROW((owner))
+}
 }
 }

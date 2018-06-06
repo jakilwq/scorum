@@ -5,12 +5,14 @@
 
 #include <scorum/chain/services/snapshot.hpp>
 #include <scorum/chain/services/blocks_story.hpp>
+#include <scorum/chain/services/account_registration_bonus.hpp>
 
 #include <string>
 #include <sstream>
 #include <fstream>
 
 #include <fc/io/raw.hpp>
+#include <fc/string.hpp>
 
 #include <scorum/snapshot/config.hpp>
 #include <scorum/snapshot/loader.hpp>
@@ -97,9 +99,11 @@ public:
 
         loaded_idxs.reserve(_state.get_indexes_size());
 
-        scorum::snapshot::load_index_section(snapshot_stream, _state, loaded_idxs, base_section());
+        scorum::snapshot::load_index_section<by_id>(snapshot_stream, _state, loaded_idxs, base_section());
 
         vops.notify_load_snapshot(snapshot_stream, loaded_idxs);
+
+        std::cerr << _state.get_indexes_size() << " ? " << loaded_idxs.size() << std::endl;
 
         FC_ASSERT(_state.get_indexes_size() == loaded_idxs.size(), "Not all indexes are loaded");
 
@@ -120,6 +124,7 @@ private:
 
 save_scheduled_snapshot::save_scheduled_snapshot(database& db)
     : _impl(new scheduled_snapshot_impl(db, static_cast<db_state&>(db)))
+    , _db(db)
 {
 }
 save_scheduled_snapshot::~save_scheduled_snapshot()
@@ -146,11 +151,21 @@ void save_scheduled_snapshot::on_apply(block_task_context& ctx)
     if (!snapshot_service.is_snapshot_scheduled())
         return;
 
+    auto number = snapshot_service.get_snapshot_scheduled_number();
+    if (number && number != ctx.block_num())
+        return;
+
     snapshot_service.clear_snapshot_schedule();
 
     fc::path snapshot_path = get_snapshot_path(dprops_service, snapshot_service.get_snapshot_dir());
     try
     {
+#if 1
+        account_registration_bonus_service_i& account_registration_bonus_service
+            = _db.account_registration_bonus_service();
+        account_registration_bonus_service.get_by_owner("guptapriyanshu");
+#endif
+
         ilog("Making snapshot for block ${n} to file ${f}.",
              ("n", ctx.block_num())("f", snapshot_path.generic_string()));
         _impl->save(snapshot_path, static_cast<database_virtual_operations_emmiter_i&>(ctx));
@@ -158,6 +173,17 @@ void save_scheduled_snapshot::on_apply(block_task_context& ctx)
     }
     FC_CAPTURE_AND_LOG((ctx.block_num())(snapshot_path))
     fc::remove_all(snapshot_path);
+}
+
+void save_scheduled_snapshot::check_snapshot_task(uint32_t block_number, const fc::path& task_dir)
+{
+    fc::path task_file_path = task_dir / fc::to_string(block_number);
+    if (fc::exists(task_file_path))
+    {
+        snapshot_service_i& snapshot_service = _db.snapshot_service();
+
+        snapshot_service.schedule_snapshot_task(block_number);
+    }
 }
 
 load_scheduled_snapshot::load_scheduled_snapshot(database& db)
@@ -183,6 +209,7 @@ void load_scheduled_snapshot::load(const fc::path& snapshot_path)
     try
     {
         _impl->load(snapshot_path, static_cast<database_virtual_operations_emmiter_i&>(_db));
+        _db.validate_invariants();
     }
     FC_CAPTURE_AND_RETHROW((snapshot_path))
 }

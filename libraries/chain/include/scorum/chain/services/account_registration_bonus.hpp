@@ -13,6 +13,8 @@ struct account_registration_bonus_service_i : public base_service_i<account_regi
     using account_registration_bonus_refs_type = std::vector<typename base_service_i::object_cref_type>;
 
     virtual account_registration_bonus_refs_type get_by_expiration_time(const fc::time_point_sec& until) const = 0;
+
+    virtual const account_registration_bonus_object& get_by_owner(const account_name_type&) const = 0;
 };
 
 class dbs_account_registration_bonus : public dbs_service_base<account_registration_bonus_service_i>
@@ -23,6 +25,8 @@ public:
     void remove_if_exist(const account_name_type&) override;
 
     account_registration_bonus_refs_type get_by_expiration_time(const fc::time_point_sec& until) const override;
+
+    const account_registration_bonus_object& get_by_owner(const account_name_type&) const override;
 };
 }
 }

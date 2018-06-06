@@ -401,7 +401,7 @@ public:
                         skip_flags &= ~database::skip_witness_schedule_check;
 
                     _chain_db->reindex(block_log_dir, _shared_dir, _shared_file_size, skip_flags, genesis_state,
-                                       snapshot_file);
+                                       snapshot_file, _data_dir);
                 }
                 else
                 {

@@ -4,6 +4,7 @@
 #include <chainbase/db_state.hpp>
 
 #include <scorum/snapshot/data_struct_hash.hpp>
+#include <scorum/snapshot/get_types_by_id.hpp>
 
 //#include <fc/io/json.hpp>
 
@@ -25,6 +26,8 @@ public:
 
     template <class T> void operator()(const T&) const
     {
+        static const int debug_id = 9;
+
         using object_type = typename T::type;
 
         std::cerr << "saving " << object_type::type_id << ": " << boost::core::demangle(typeid(object_type).name())
@@ -34,25 +37,39 @@ public:
                                 .indices()
                                 .template get<IterationTag>();
         size_t sz = index.size();
-        fc::raw::pack(_fstream, index.size());
+        object_ids_type obj_ids;
+        obj_ids.reserve(sz);
+        for (auto itr = index.begin(); itr != index.end(); ++itr)
+        {
+            const object_type& obj = (*itr);
+
+            obj_ids.insert(obj.id._id);
+
+            std::cerr << '(' << obj.id._id << ')';
+        }
+        if (!obj_ids.empty())
+        {
+            std::cerr << std::endl;
+        }
+
+        fc::raw::pack(_fstream, obj_ids);
         auto itr = index.begin();
         if (sz > 0)
         {
             fc::raw::pack(_fstream, get_data_struct_hash(*itr));
 
-            using object_id_type = typename object_type::id_type;
-
-            for (; itr != index.end(); ++itr)
+            for (auto itr = index.begin(); itr != index.end(); ++itr)
             {
                 const object_type& obj = (*itr);
 
-                //                fc::variant vo;
-                //                fc::to_variant(obj, vo);
-                //                std::cerr << "saved " << boost::core::demangle(typeid(object_type).name()) << ":"
-                //                          << fc::json::to_pretty_string(vo) << std::endl;
+                if (debug_id == object_type::type_id)
+                {
+                    fc::variant vo;
+                    fc::to_variant(obj, vo);
+                    std::cerr << "saved " << boost::core::demangle(typeid(object_type).name()) << ":"
+                              << fc::json::to_pretty_string(vo) << std::endl;
+                }
 
-                object_id_type obj_id = obj.id;
-                fc::raw::pack(_fstream, obj_id);
                 fc::raw::pack(_fstream, obj);
             }
         }

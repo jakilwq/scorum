@@ -118,7 +118,8 @@ public:
                  uint64_t shared_file_size,
                  uint32_t skip_flags,
                  const genesis_state_type& genesis_state,
-                 const fc::path& snapshot_file = fc::path());
+                 const fc::path& snapshot_file = fc::path(),
+                 const fc::path& snapshot_task_dir = fc::path());
 
     /**
      * @brief wipe Delete database from disk, and potentially the raw chain as well.
@@ -132,14 +133,18 @@ public:
 
     void set_snapshot_dir(const fc::path& dir);
     bool is_snapshot_available() const;
-    void schedule_snapshot_task();
+    void schedule_snapshot_task(uint32_t number = 0);
+    uint32_t get_snapshot_scheduled_number() const
+    {
+        return _do_snapshot;
+    }
     fc::path snapshot_dir() const
     {
         return _snapshot_dir;
     }
     bool is_snapshot_scheduled() const
     {
-        return is_snapshot_available() && _do_snapshot;
+        return is_snapshot_available() && _do_snapshot != uint32_t(-1);
     }
     void clear_snapshot_schedule();
 
@@ -423,7 +428,7 @@ private:
     fc::time_point_sec _const_genesis_time; // should be const
 
     fc::path _snapshot_dir;
-    bool _do_snapshot = false;
+    uint32_t _do_snapshot = uint32_t(-1);
 };
 } // namespace chain
 } // namespace scorum

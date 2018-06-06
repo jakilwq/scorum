@@ -63,6 +63,8 @@ public:
 
         FC_ASSERT(bonus.amount > 0, "No bonus to register.");
 
+        std::cerr << __FUNCTION__ << " for " << new_account << std::endl;
+
         _account_registration_bonus_service.create([&](account_registration_bonus_object& a) {
             a.account = new_account;
             a.bonus += asset(bonus.amount, SP_SYMBOL);

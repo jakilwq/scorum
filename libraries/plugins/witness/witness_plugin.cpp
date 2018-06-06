@@ -388,7 +388,7 @@ void witness_plugin_impl::save_snapshot(std::ofstream& fs)
 void witness_plugin_impl::load_snapshot(std::ifstream& fs, scorum::snapshot::index_ids_type& loaded_idxs)
 {
     database& db = _self.database();
-    scorum::snapshot::load_index_section(fs, static_cast<db_state&>(db), loaded_idxs, witness_section());
+    scorum::snapshot::load_index_section<by_id>(fs, static_cast<db_state&>(db), loaded_idxs, witness_section());
 }
 }
 

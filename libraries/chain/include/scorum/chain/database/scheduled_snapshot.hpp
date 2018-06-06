@@ -34,8 +34,11 @@ struct save_scheduled_snapshot : public block_task
 
     virtual void on_apply(block_task_context&);
 
+    void check_snapshot_task(uint32_t block_number, const fc::path& task_dir);
+
 private:
     std::unique_ptr<scheduled_snapshot_impl> _impl;
+    database& _db;
 };
 
 struct load_scheduled_snapshot

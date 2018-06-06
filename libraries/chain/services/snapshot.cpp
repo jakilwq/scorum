@@ -16,9 +16,17 @@ fc::path dbs_snapshot::get_snapshot_dir() const
 {
     return db_impl().snapshot_dir();
 }
+void dbs_snapshot::schedule_snapshot_task(uint32_t number /*= 0*/)
+{
+    return db_impl().schedule_snapshot_task(number);
+}
 bool dbs_snapshot::is_snapshot_scheduled() const
 {
     return db_impl().is_snapshot_scheduled();
+}
+uint32_t dbs_snapshot::get_snapshot_scheduled_number() const
+{
+    return db_impl().get_snapshot_scheduled_number();
 }
 void dbs_snapshot::clear_snapshot_schedule()
 {

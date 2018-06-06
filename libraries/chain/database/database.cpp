@@ -219,7 +219,8 @@ void database::reindex(const fc::path& data_dir,
                        uint64_t shared_file_size,
                        uint32_t skip_flags,
                        const genesis_state_type& genesis_state,
-                       const fc::path& snapshot_file /*= fc::path()*/)
+                       const fc::path& snapshot_file /*= fc::path()*/,
+                       const fc::path& snapshot_task_dir /*= fc::path()*/)
 {
     try
     {
@@ -240,19 +241,24 @@ void database::reindex(const fc::path& data_dir,
         {
             FC_ASSERT(fc::exists(snapshot_file), "Snapshot file does not exist");
             auto header = database_ns::load_scheduled_snapshot(*this).load_header(snapshot_file);
-            FC_ASSERT(header.chainbase_flags != chainbase::database::read_write,
+            FC_ASSERT(header.chainbase_flags == chainbase::database::read_write,
                       "Snapshot saved from read-only node cannot applied to read/write node");
             start_apply_block_digest = header.head_block_digest;
         }
 
         ilog("Replaying ${n} blocks...", ("n", last_block_num));
 
-        with_write_lock([&]() {
+        {
             auto itr = _block_log.read_block(0);
             while (itr.first.block_num() <= last_block_num)
             {
                 signed_block& block = itr.first;
                 auto cur_block_num = block.block_num();
+
+                if (start_apply_block_digest == digest_type())
+                {
+                    database_ns::save_scheduled_snapshot(*this).check_snapshot_task(cur_block_num, snapshot_task_dir);
+                }
 
                 if (cur_block_num % log_interval_sz == 0 || cur_block_num == last_block_num)
                 {
@@ -265,7 +271,7 @@ void database::reindex(const fc::path& data_dir,
                     database_ns::load_scheduled_snapshot(*this).load(snapshot_file);
                     start_apply_block_digest = digest_type();
                 }
-                if (start_apply_block_digest == digest_type())
+                else if (start_apply_block_digest == digest_type())
                 {
                     apply_block(block, skip_flags);
                 }
@@ -276,7 +282,7 @@ void database::reindex(const fc::path& data_dir,
             }
 
             for_each_index([&](chainbase::abstract_generic_index_i& item) { item.set_revision(head_block_num()); });
-        });
+        }
 
         if (_block_log.head()->block_num())
         {
@@ -347,15 +353,15 @@ bool database::is_snapshot_available() const
     return _snapshot_dir != fc::path();
 }
 
-void database::schedule_snapshot_task()
+void database::schedule_snapshot_task(uint32_t number /*= 0*/)
 {
     if (is_snapshot_available())
-        _do_snapshot = true;
+        _do_snapshot = number;
 }
 
 void database::clear_snapshot_schedule()
 {
-    _do_snapshot = false;
+    _do_snapshot = uint32_t(-1);
 }
 
 bool database::is_known_block(const block_id_type& id) const

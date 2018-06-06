@@ -29,6 +29,9 @@ public:
 
         const uint16_t type_id = index_type::value_type::type_id;
 
+        std::cerr << "add_index " << type_id << ": "
+                  << boost::core::demangle(typeid(typename MultiIndexType::value_type).name()) << std::endl;
+
         if (_index_map.find(type_id) != _index_map.end())
         {
             std::string type_name = boost::core::demangle(typeid(typename index_type::value_type).name());
