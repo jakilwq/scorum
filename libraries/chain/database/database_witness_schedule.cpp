@@ -71,6 +71,12 @@ void database::update_witness_schedule()
         active_witnesses.reserve(SCORUM_MAX_WITNESSES);
 
         const auto& widx = _db.get_index<witness_index>().indices().get<by_vote_name>();
+
+        for (auto itr = widx.begin(); itr != widx.end(); ++itr)
+        {
+            fc_ilog(fc::logger::get("dbg"), "witness=${w}", ("w", *itr));
+        }
+
         for (auto itr = widx.begin(); itr != widx.end() && active_witnesses.size() < SCORUM_MAX_VOTED_WITNESSES; ++itr)
         {
             if (itr->signing_key == public_key_type())
@@ -78,7 +84,7 @@ void database::update_witness_schedule()
                 continue;
             }
 
-            fc_ilog(fc::logger::get("dbg"), "active=${active}", ("active", *itr));
+            fc_ilog(fc::logger::get("dbg"), "active=${active}", ("active", itr->owner));
 
             FC_ASSERT(active_witnesses.insert(std::make_pair(itr->id, itr->owner)).second);
             _db.modify(*itr, [&](witness_object& wo) { wo.schedule = witness_object::top20; });
