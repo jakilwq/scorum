@@ -9,43 +9,32 @@
 
 #include <iostream>
 
+using namespace chainbase;
 using namespace boost::multi_index;
 
-// BOOST_TEST_SUITE( serialization_tests, database_default_integration_fixture )
+// BOOST_TEST_SUITE( serialization_tests, clean_database_fixture )
 
 struct book : public chainbase::object<0, book>
 {
-    CHAINBASE_DEFAULT_CONSTRUCTOR(book)
+
+    template <typename Constructor, typename Allocator> book(Constructor&& c, Allocator&& a)
+    {
+        c(*this);
+    }
 
     id_type id;
     int a = 0;
     int b = 1;
 };
 
-typedef fc::shared_multi_index_container<book,
-                                         indexed_by<ordered_unique<member<book, book::id_type, &book::id>>,
-                                                    ordered_non_unique<BOOST_MULTI_INDEX_MEMBER(book, int, a)>,
-                                                    ordered_non_unique<BOOST_MULTI_INDEX_MEMBER(book, int, b)>>>
+typedef multi_index_container<book,
+                              indexed_by<ordered_unique<member<book, book::id_type, &book::id>>,
+                                         ordered_non_unique<BOOST_MULTI_INDEX_MEMBER(book, int, a)>,
+                                         ordered_non_unique<BOOST_MULTI_INDEX_MEMBER(book, int, b)>>,
+                              chainbase::allocator<book>>
     book_index;
 
 CHAINBASE_SET_INDEX_TYPE(book, book_index)
-
-class moc_database : public chainbase::database
-{
-    typedef chainbase::database _Base;
-
-public:
-    ~moc_database()
-    {
-    }
-
-    void undo()
-    {
-        for_each_index([&](chainbase::abstract_generic_index_i& item) { item.undo(); });
-    }
-
-    // TODO (if chainbase::database became private)
-};
 
 BOOST_AUTO_TEST_CASE(open_and_create)
 {
@@ -54,12 +43,12 @@ BOOST_AUTO_TEST_CASE(open_and_create)
     {
         std::cerr << temp.native() << " \n";
 
-        moc_database db;
+        chainbase::database db;
         BOOST_CHECK_THROW(db.open(temp), std::runtime_error); /// temp does not exist
 
-        db.open(temp, chainbase::database::read_write, 1024 * 1024 * 8);
+        db.open(temp, database::read_write, 1024 * 1024 * 8);
 
-        moc_database db2; /// open an already created db
+        chainbase::database db2; /// open an already created db
         db2.open(temp);
         BOOST_CHECK_THROW(db2.add_index<book_index>(),
                           std::runtime_error); /// index does not exist in read only database
@@ -91,7 +80,7 @@ BOOST_AUTO_TEST_CASE(open_and_create)
         BOOST_REQUIRE_EQUAL(new_book.b, copy_new_book.b);
 
         {
-            auto session = db.start_undo_session();
+            auto session = db.start_undo_session(true);
             db.modify(new_book, [&](book& b) {
                 b.a = 7;
                 b.b = 8;
@@ -104,7 +93,7 @@ BOOST_AUTO_TEST_CASE(open_and_create)
         BOOST_REQUIRE_EQUAL(new_book.b, 6);
 
         {
-            auto session = db.start_undo_session();
+            auto session = db.start_undo_session(true);
             const auto& book2 = db.create<book>([&](book& b) {
                 b.a = 9;
                 b.b = 10;
@@ -120,7 +109,7 @@ BOOST_AUTO_TEST_CASE(open_and_create)
         BOOST_REQUIRE_EQUAL(new_book.b, 6);
 
         {
-            auto session = db.start_undo_session();
+            auto session = db.start_undo_session(true);
             db.modify(new_book, [&](book& b) {
                 b.a = 7;
                 b.b = 8;
@@ -128,7 +117,7 @@ BOOST_AUTO_TEST_CASE(open_and_create)
 
             BOOST_REQUIRE_EQUAL(new_book.a, 7);
             BOOST_REQUIRE_EQUAL(new_book.b, 8);
-            session->push();
+            session.push();
         }
         BOOST_REQUIRE_EQUAL(new_book.a, 7);
         BOOST_REQUIRE_EQUAL(new_book.b, 8);
@@ -141,7 +130,7 @@ BOOST_AUTO_TEST_CASE(open_and_create)
     }
     catch (...)
     {
-        boost::filesystem::remove_all(temp);
+        bfs::remove_all(temp);
         throw;
     }
 }

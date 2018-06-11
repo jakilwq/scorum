@@ -7,9 +7,9 @@
 
 #define TAGS_API_NAME "tags_api"
 
-namespace chainbase {
-class database_guard;
-}
+// namespace chainbase {
+// class database_guard;
+//}
 
 namespace scorum {
 namespace tags {
@@ -20,9 +20,9 @@ class tags_api : public std::enable_shared_from_this<tags_api>
 {
     std::unique_ptr<tags_api_impl> _impl;
 
-    std::shared_ptr<chainbase::database_guard> _guard;
+    //    std::shared_ptr<chainbase::database_guard> _guard;
 
-    chainbase::database_guard& guard() const;
+    //    chainbase::database_guard& guard() const;
 
 public:
     tags_api(const app::api_context& ctx);

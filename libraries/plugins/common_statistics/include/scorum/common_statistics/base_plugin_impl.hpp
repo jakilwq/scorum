@@ -1,7 +1,7 @@
 #pragma once
 
 #include <limits>
-#include <chainbase/generic_index.hpp>
+//#include <chainbase/generic_index.hpp>
 #include <scorum/protocol/block.hpp>
 #include <scorum/chain/operation_notification.hpp>
 
