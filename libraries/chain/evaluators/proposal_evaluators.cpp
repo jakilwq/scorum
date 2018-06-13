@@ -42,5 +42,18 @@ void development_committee_withdraw_vesting_evaluator::do_apply(
     create_withdraw.apply(ctx);
 }
 
+development_committee_change_top_budgets_amount_evaluator::development_committee_change_top_budgets_amount_evaluator(
+    data_service_factory_i& r)
+    : proposal_operation_evaluator<development_committee_change_top_budgets_amount_evaluator>(r)
+{
+}
+
+void development_committee_change_top_budgets_amount_evaluator::do_apply(const operation_type& o)
+{
+    auto& dev_pool = this->db().dev_pool_service();
+
+    dev_pool.update([&](dev_committee_object& com) { com.top_budgets_amount = o.amount; });
+}
+
 } // namespace chain
 } // namespace scorum

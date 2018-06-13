@@ -46,7 +46,7 @@ void process_funds::on_apply(block_task_context& ctx)
     distribute_reward(ctx, original_fund_reward); // distribute SP
 
     asset advertising_budgets_reward = asset(0, SCORUM_SYMBOL);
-    for (const budget_object& budget : budget_service.get_budgets())
+    for (const budget_object& budget : budget_service.get_top_budgets(dev_service.get().top_budgets_amount))
     {
         advertising_budgets_reward += budget_service.allocate_cash(budget);
     }

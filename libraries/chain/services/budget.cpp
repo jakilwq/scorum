@@ -22,17 +22,34 @@ bool dbs_budget::is_fund_budget_exists() const
 
 dbs_budget::budget_refs_type dbs_budget::get_budgets() const
 {
-    budget_refs_type ret;
-
-    const auto& idx = db_impl().get_index<budget_index>().indices();
-
-    for (auto it = idx.cbegin(), it_end = idx.cend(); it != it_end; ++it)
+    try
     {
-        if (!_is_fund_budget(*it))
-            ret.push_back(std::cref(*it));
+        return get_filtered_range_by<by_id>(::boost::multi_index::unbounded, ::boost::multi_index::unbounded,
+                                            [&](const budget_object& b) { return !_is_fund_budget(b); });
     }
+    FC_CAPTURE_AND_RETHROW(())
+}
 
-    return ret;
+dbs_budget::budget_refs_type dbs_budget::get_top_budgets(const uint16_t limit) const
+{
+    try
+    {
+        budget_refs_type ret;
+
+        const auto& idx = db_impl().get_index<budget_index>().indices().get<by_per_block>();
+
+        uint16_t selected = 0;
+        for (auto it = idx.cbegin(), it_end = idx.cend(); it != it_end; ++it)
+        {
+            if (++selected > limit)
+                break;
+            if (!_is_fund_budget(*it))
+                ret.push_back(std::cref(*it));
+        }
+
+        return ret;
+    }
+    FC_CAPTURE_AND_RETHROW(())
 }
 
 const budget_object& dbs_budget::get_fund_budget() const

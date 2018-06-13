@@ -19,10 +19,13 @@ public:
     asset sp_balance = asset(0, SP_SYMBOL);
     asset scr_balance = asset(0, SCORUM_SYMBOL);
 
+    uint16_t top_budgets_amount = SCORUM_DEFAULT_TOP_BUDGETS_AMOUNT;
+
     protocol::percent_type transfer_quorum = SCORUM_COMMITTEE_TRANSFER_QUORUM_PERCENT;
     protocol::percent_type invite_quorum = SCORUM_COMMITTEE_ADD_EXCLUDE_QUORUM_PERCENT;
     protocol::percent_type dropout_quorum = SCORUM_COMMITTEE_ADD_EXCLUDE_QUORUM_PERCENT;
     protocol::percent_type change_quorum = SCORUM_COMMITTEE_QUORUM_PERCENT;
+    protocol::percent_type top_budgets_quorum = SCORUM_COMMITTEE_QUORUM_PERCENT;
 };
 
 class dev_committee_member_object : public object<dev_committee_member_object_type, dev_committee_member_object>
@@ -62,10 +65,13 @@ FC_REFLECT(scorum::chain::dev_committee_object,
            (id)
            (sp_balance)
            (scr_balance)
+           (top_budgets_amount)
            (transfer_quorum)
            (invite_quorum)
            (dropout_quorum)
-           (change_quorum))
+           (change_quorum)
+           (top_budgets_quorum)
+           )
 // clang-format on
 
 CHAINBASE_SET_INDEX_TYPE(scorum::chain::dev_committee_object, scorum::chain::dev_committee_index)

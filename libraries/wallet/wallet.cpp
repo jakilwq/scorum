@@ -2684,6 +2684,26 @@ annotated_signed_transaction wallet_api::development_committee_change_transfer_q
     return my->sign_transaction(tx, broadcast);
 }
 
+annotated_signed_transaction wallet_api::development_committee_change_top_budget_quorum(const std::string& initiator,
+                                                                                        uint64_t quorum_percent,
+                                                                                        uint32_t lifetime_sec,
+                                                                                        bool broadcast)
+{
+    using operation_type = development_committee_change_quorum_operation;
+
+    signed_transaction tx = proposal<operation_type>(initiator, lifetime_sec, [&](operation_type& o) {
+        o.quorum = quorum_percent;
+        o.committee_quorum = top_budget_quorum;
+    });
+
+    return my->sign_transaction(tx, broadcast);
+}
+
+development_committee_api_obj wallet_api::get_development_committee()
+{
+    return my->_remote_db->get_development_committee();
+}
+
 annotated_signed_transaction wallet_api::development_pool_transfer(
     const std::string& initiator, const std::string& to_account, asset amount, uint32_t lifetime_sec, bool broadcast)
 {
@@ -2710,9 +2730,17 @@ annotated_signed_transaction wallet_api::development_pool_withdraw_vesting(const
     return my->sign_transaction(tx, broadcast);
 }
 
-development_committee_api_obj wallet_api::get_development_committee()
+annotated_signed_transaction wallet_api::development_pool_top_budget(const std::string& initiator,
+                                                                     uint16_t amount,
+                                                                     uint32_t lifetime_sec,
+                                                                     bool broadcast)
 {
-    return my->_remote_db->get_development_committee();
+    using operation_type = development_committee_change_top_budgets_amount_operation;
+
+    signed_transaction tx
+        = proposal<operation_type>(initiator, lifetime_sec, [&](operation_type& o) { o.amount = amount; });
+
+    return my->sign_transaction(tx, broadcast);
 }
 
 atomicswap_contract_result_api_obj wallet_api::atomicswap_initiate(const std::string& initiator,

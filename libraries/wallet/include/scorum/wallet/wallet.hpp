@@ -1153,12 +1153,25 @@ public:
                                                                           bool broadcast);
 
     /**
-     * Change development committee for changing add/exclude quorum
+     * Change development committee for changing transfer quorum
      */
     annotated_signed_transaction development_committee_change_transfer_quorum(const std::string& creator,
                                                                               uint64_t quorum_percent,
                                                                               uint32_t lifetime_sec,
                                                                               bool broadcast);
+
+    /**
+     * Change development committee for changing top budget amount quorum
+     */
+    annotated_signed_transaction development_committee_change_top_budget_quorum(const std::string& creator,
+                                                                                uint64_t quorum_percent,
+                                                                                uint32_t lifetime_sec,
+                                                                                bool broadcast);
+
+    /**
+     * Get development committee
+     */
+    development_committee_api_obj get_development_committee();
 
     /**
      * Create proposal for transfering SCR from development pool to account
@@ -1178,9 +1191,10 @@ public:
                                                                    bool broadcast);
 
     /**
-     * Get development committee
+     * Create proposal for set up a vesting withdraw request.
      */
-    development_committee_api_obj get_development_committee();
+    annotated_signed_transaction
+    development_pool_top_budget(const std::string& initiator, uint16_t amount, uint32_t lifetime_sec, bool broadcast);
 
     /** Initiating Atomic Swap transfer from initiator to participant.
      *  Asset (amount) will be locked for 48 hours while is not redeemed or refund automatically by timeout.
@@ -1407,9 +1421,12 @@ FC_API( scorum::wallet::wallet_api,
         (development_committee_change_add_member_quorum)
         (development_committee_change_exclude_member_quorum)
         (development_committee_change_base_quorum)
+        (development_committee_change_transfer_quorum)
+        (development_committee_change_top_budget_quorum)
         (get_development_committee)
         (development_pool_transfer)
         (development_pool_withdraw_vesting)
+        (development_pool_top_budget)
 
         // Atomic Swap API
         (atomicswap_initiate)

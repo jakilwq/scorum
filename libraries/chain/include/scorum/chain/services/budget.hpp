@@ -12,6 +12,7 @@ struct budget_service_i : public base_service_i<budget_object>
     virtual std::set<std::string> lookup_budget_owners(const std::string& lower_bound_owner_name,
                                                        uint32_t limit) const = 0;
     virtual budget_refs_type get_budgets() const = 0;
+    virtual budget_refs_type get_top_budgets(const uint16_t limit) const = 0;
     virtual budget_refs_type get_budgets(const account_name_type& owner) const = 0;
     virtual const budget_object& get_budget(budget_id_type id) const = 0;
     virtual const budget_object& create_budget(const account_object& owner,
@@ -49,6 +50,8 @@ public:
      * @returns a list of budget objects
      */
     virtual budget_refs_type get_budgets() const override;
+
+    virtual budget_refs_type get_top_budgets(const uint16_t limit) const override;
 
     /** Lists all budgets registered for owner.
      *

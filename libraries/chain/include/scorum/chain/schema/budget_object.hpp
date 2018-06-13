@@ -37,6 +37,7 @@ public:
 };
 
 struct by_owner_name;
+struct by_per_block;
 
 typedef shared_multi_index_container<budget_object,
                                      indexed_by<ordered_unique<tag<by_id>,
@@ -46,7 +47,17 @@ typedef shared_multi_index_container<budget_object,
                                                 ordered_non_unique<tag<by_owner_name>,
                                                                    member<budget_object,
                                                                           account_name_type,
-                                                                          &budget_object::owner>>>>
+                                                                          &budget_object::owner>>,
+                                                ordered_unique<tag<by_per_block>,
+                                                               composite_key<budget_object,
+                                                                             member<budget_object,
+                                                                                    asset,
+                                                                                    &budget_object::per_block>,
+                                                                             member<budget_object,
+                                                                                    budget_id_type,
+                                                                                    &budget_object::id>>,
+                                                               composite_key_compare<std::greater<asset>,
+                                                                                     std::less<budget_id_type>>>>>
     budget_index;
 } // namespace chain
 } // namespace scorum

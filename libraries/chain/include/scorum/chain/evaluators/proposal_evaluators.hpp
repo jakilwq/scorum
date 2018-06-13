@@ -73,24 +73,24 @@ struct proposal_change_quorum_evaluator
     {
         committee_i& committee_service = get_committee(this->db(), o);
 
-        if (o.committee_quorum == add_member_quorum)
+        switch (o.committee_quorum)
         {
+        case quorum_type::add_member_quorum:
             committee_service.change_add_member_quorum(o.quorum);
-        }
-        else if (o.committee_quorum == exclude_member_quorum)
-        {
+            break;
+        case quorum_type::exclude_member_quorum:
             committee_service.change_exclude_member_quorum(o.quorum);
-        }
-        else if (o.committee_quorum == base_quorum)
-        {
+            break;
+        case quorum_type::base_quorum:
             committee_service.change_base_quorum(o.quorum);
-        }
-        else if (o.committee_quorum == transfer_quorum)
-        {
+            break;
+        case quorum_type::transfer_quorum:
             committee_service.change_transfer_quorum(o.quorum);
-        }
-        else
-        {
+            break;
+        case quorum_type::top_budget_quorum:
+            committee_service.change_top_budgets_quorum(o.quorum);
+            break;
+        default:
             FC_THROW_EXCEPTION(fc::assert_exception, "unknow quorum change operation");
         }
     }
@@ -112,6 +112,16 @@ struct development_committee_transfer_evaluator
     typedef development_committee_transfer_operation operation_type;
 
     development_committee_transfer_evaluator(data_service_factory_i& r);
+
+    void do_apply(const operation_type& o);
+};
+
+struct development_committee_change_top_budgets_amount_evaluator
+    : public proposal_operation_evaluator<development_committee_change_top_budgets_amount_evaluator>
+{
+    typedef development_committee_change_top_budgets_amount_operation operation_type;
+
+    development_committee_change_top_budgets_amount_evaluator(data_service_factory_i& r);
 
     void do_apply(const operation_type& o);
 };
@@ -142,6 +152,8 @@ using proposal_change_quorum_evaluator
 
 using proposal_withdraw_vesting_evaluator = development_committee_withdraw_vesting_evaluator;
 using proposal_transfer_evaluator = development_committee_transfer_evaluator;
+
+using proposal_change_top_budgets_amount_evaluator = development_committee_change_top_budgets_amount_evaluator;
 
 } // namespace development_committee
 

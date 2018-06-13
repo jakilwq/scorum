@@ -31,6 +31,8 @@ dbs_proposal_executor::dbs_proposal_executor(database& s)
 
     evaluators.register_evaluator<development_committee::proposal_withdraw_vesting_evaluator>();
     evaluators.register_evaluator<development_committee::proposal_transfer_evaluator>();
+
+    evaluators.register_evaluator<development_committee::proposal_change_top_budgets_amount_evaluator>();
 }
 
 void dbs_proposal_executor::operator()(const proposal_object& proposal)
