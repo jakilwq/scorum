@@ -234,6 +234,11 @@ struct get_impacted_account_visitor
         _impacted.insert(op.producer);
     }
 
+    void operator()(const active_sp_holders_reward_operation& op)
+    {
+        _impacted.insert(op.sp_holder);
+    }
+
     void operator()(const expired_contract_refund_operation& op)
     {
         _impacted.insert(op.owner);
