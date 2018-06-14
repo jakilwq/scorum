@@ -223,6 +223,26 @@ struct expired_contract_refund_operation : public virtual_operation
     account_name_type owner;
     asset refund = asset(0, SCORUM_SYMBOL);
 };
+
+struct allocate_cash_from_advertising_budget_operation : public virtual_operation
+{
+    allocate_cash_from_advertising_budget_operation()
+    {
+    }
+    allocate_cash_from_advertising_budget_operation(const account_name_type& owner_,
+                                                    const std::string& permlink_,
+                                                    const asset& cash_)
+        : owner(owner_)
+        , permlink(permlink_)
+        , cash(cash_)
+    {
+        FC_ASSERT(cash_.symbol() == SCORUM_SYMBOL);
+    }
+
+    account_name_type owner;
+    std::string permlink;
+    asset cash = asset(0, SCORUM_SYMBOL);
+};
 }
 } // scorum::protocol
 
@@ -239,3 +259,4 @@ FC_REFLECT(scorum::protocol::comment_benefactor_reward_operation, (benefactor)(a
 FC_REFLECT(scorum::protocol::producer_reward_operation, (producer)(reward))
 FC_REFLECT(scorum::protocol::active_sp_holders_reward_operation, (sp_holder)(reward))
 FC_REFLECT(scorum::protocol::expired_contract_refund_operation, (owner)(refund))
+FC_REFLECT(scorum::protocol::allocate_cash_from_advertising_budget_operation, (owner)(permlink)(cash))

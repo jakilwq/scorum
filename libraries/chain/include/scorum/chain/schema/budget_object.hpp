@@ -38,6 +38,7 @@ public:
 };
 
 struct by_owner_name;
+struct by_uniq_meta_data;
 struct by_per_block;
 
 typedef shared_multi_index_container<budget_object,
@@ -49,6 +50,14 @@ typedef shared_multi_index_container<budget_object,
                                                                    member<budget_object,
                                                                           account_name_type,
                                                                           &budget_object::owner>>,
+                                                ordered_unique<tag<by_uniq_meta_data>,
+                                                               composite_key<budget_object,
+                                                                             member<budget_object,
+                                                                                    account_name_type,
+                                                                                    &budget_object::owner>,
+                                                                             member<budget_object,
+                                                                                    fc::shared_string,
+                                                                                    &budget_object::content_permlink>>>,
                                                 ordered_unique<tag<by_per_block>,
                                                                composite_key<budget_object,
                                                                              member<budget_object,

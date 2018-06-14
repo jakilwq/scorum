@@ -1179,15 +1179,11 @@ void create_budget_evaluator::do_apply(const create_budget_operation& op)
 
     account_service.check_account_existence(op.owner);
 
-    optional<std::string> content_permlink;
-    if (!op.content_permlink.empty())
-    {
-        content_permlink = op.content_permlink;
-    }
+    FC_ASSERT(!op.content_permlink.empty(), "There is not uniq permlink for new budget");
 
     const auto& owner = account_service.get_account(op.owner);
 
-    budget_service.create_budget(owner, op.balance, op.deadline, content_permlink);
+    budget_service.create_budget(owner, op.balance, op.deadline, op.content_permlink);
 }
 
 void close_budget_evaluator::do_apply(const close_budget_operation& op)

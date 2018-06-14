@@ -21,6 +21,7 @@ namespace chain {
 namespace database_ns {
 
 using scorum::protocol::producer_reward_operation;
+using scorum::protocol::allocate_cash_from_advertising_budget_operation;
 
 void process_funds::on_apply(block_task_context& ctx)
 {
@@ -48,7 +49,13 @@ void process_funds::on_apply(block_task_context& ctx)
     asset advertising_budgets_reward = asset(0, SCORUM_SYMBOL);
     for (const budget_object& budget : budget_service.get_top_budgets(dev_service.get().top_budgets_amount))
     {
-        advertising_budgets_reward += budget_service.allocate_cash(budget);
+        auto cash = budget_service.allocate_cash(budget);
+        if (cash.amount > 0)
+        {
+            advertising_budgets_reward += cash;
+            ctx.push_virtual_operation(allocate_cash_from_advertising_budget_operation(
+                budget.owner, fc::to_string(budget.content_permlink), cash));
+        }
     }
 
     // 50% of the revenue goes to support and develop the product, namely,

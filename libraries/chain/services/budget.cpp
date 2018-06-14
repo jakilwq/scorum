@@ -15,6 +15,34 @@ dbs_budget::dbs_budget(database& db)
 {
 }
 
+const budget_object& dbs_budget::get_fund_budget() const
+{
+    auto itr = find_by<by_owner_name>(SCORUM_ROOT_POST_PARENT_ACCOUNT);
+
+    FC_ASSERT(itr != nullptr, "Fund budget does not exist.");
+
+    return *itr;
+}
+
+std::set<std::string> dbs_budget::lookup_budget_owners(const std::string& lower_bound_owner_name, uint32_t limit) const
+{
+    std::set<std::string> result;
+
+    const auto& budgets_by_owner_name = db_impl().get_index<budget_index>().indices().get<by_owner_name>();
+
+    // prepare output if limit > 0
+    for (auto itr = budgets_by_owner_name.lower_bound(lower_bound_owner_name);
+         limit && itr != budgets_by_owner_name.end(); ++itr)
+    {
+        if (_is_fund_budget(*itr))
+            continue;
+
+        --limit;
+        result.insert(itr->owner);
+    }
+    return result;
+}
+
 bool dbs_budget::is_fund_budget_exists() const
 {
     return find_by<by_owner_name>(SCORUM_ROOT_POST_PARENT_ACCOUNT) != nullptr;
@@ -50,34 +78,6 @@ dbs_budget::budget_refs_type dbs_budget::get_top_budgets(const uint16_t limit) c
         return ret;
     }
     FC_CAPTURE_AND_RETHROW(())
-}
-
-const budget_object& dbs_budget::get_fund_budget() const
-{
-    auto itr = find_by<by_owner_name>(SCORUM_ROOT_POST_PARENT_ACCOUNT);
-
-    FC_ASSERT(itr != nullptr, "Fund budget does not exist.");
-
-    return *itr;
-}
-
-std::set<std::string> dbs_budget::lookup_budget_owners(const std::string& lower_bound_owner_name, uint32_t limit) const
-{
-    std::set<std::string> result;
-
-    const auto& budgets_by_owner_name = db_impl().get_index<budget_index>().indices().get<by_owner_name>();
-
-    // prepare output if limit > 0
-    for (auto itr = budgets_by_owner_name.lower_bound(lower_bound_owner_name);
-         limit && itr != budgets_by_owner_name.end(); ++itr)
-    {
-        if (_is_fund_budget(*itr))
-            continue;
-
-        --limit;
-        result.insert(itr->owner);
-    }
-    return result;
 }
 
 dbs_budget::budget_refs_type dbs_budget::get_budgets(const account_name_type& owner) const
@@ -116,13 +116,13 @@ const budget_object& dbs_budget::create_fund_budget(const asset& balance, const 
     time_point_sec start_date = db_impl().obtain_service<dbs_dynamic_global_property>().get().time;
     FC_ASSERT(start_date < deadline, "Invalid deadline.");
 
-    return _create_budget(SCORUM_ROOT_POST_PARENT_ACCOUNT, balance.amount, start_date, deadline);
+    return _create_budget(SCORUM_ROOT_POST_PARENT_ACCOUNT, balance.amount, start_date, deadline, "");
 }
 
 const budget_object& dbs_budget::create_budget(const account_object& owner,
                                                const asset& balance,
                                                const time_point_sec& deadline,
-                                               const optional<std::string>& content_permlink)
+                                               const std::string& content_permlink)
 {
     dbs_account& account_service = db().obtain_service<dbs_account>();
     dbs_dynamic_global_property& dgp_service = db().obtain_service<dbs_dynamic_global_property>();
@@ -154,7 +154,7 @@ const budget_object& dbs_budget::_create_budget(const account_name_type& owner,
                                                 const share_type& balance,
                                                 const time_point_sec& start_date,
                                                 const time_point_sec& end_date,
-                                                const optional<std::string>& content_permlink)
+                                                const std::string& content_permlink)
 {
     auto per_block = _calculate_per_block(start_date, end_date, balance);
 
@@ -166,10 +166,7 @@ const budget_object& dbs_budget::_create_budget(const account_name_type& owner,
 
     return create([&](budget_object& budget) {
         budget.owner = owner;
-        if (content_permlink.valid())
-        {
-            fc::from_string(budget.content_permlink, *content_permlink);
-        }
+        fc::from_string(budget.content_permlink, content_permlink);
         budget.created = start_date;
         budget.deadline = end_date;
         budget.balance = balance;

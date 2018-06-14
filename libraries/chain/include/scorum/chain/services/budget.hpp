@@ -9,21 +9,23 @@ struct budget_service_i : public base_service_i<budget_object>
 {
     using budget_refs_type = std::vector<std::reference_wrapper<const budget_object>>;
 
+    virtual const budget_object& get_fund_budget() const = 0;
+
     virtual std::set<std::string> lookup_budget_owners(const std::string& lower_bound_owner_name,
                                                        uint32_t limit) const = 0;
     virtual budget_refs_type get_budgets() const = 0;
     virtual budget_refs_type get_top_budgets(const uint16_t limit) const = 0;
     virtual budget_refs_type get_budgets(const account_name_type& owner) const = 0;
     virtual const budget_object& get_budget(budget_id_type id) const = 0;
+
     virtual const budget_object& create_budget(const account_object& owner,
                                                const asset& balance,
                                                const time_point_sec& deadline,
-                                               const optional<std::string>& content_permlink = optional<std::string>())
+                                               const std::string& content_permlink)
         = 0;
     virtual void close_budget(const budget_object& budget) = 0;
 
     virtual const budget_object& create_fund_budget(const asset& balance, const time_point_sec& deadline) = 0;
-    virtual const budget_object& get_fund_budget() const = 0;
     virtual bool is_fund_budget_exists() const = 0;
 
     virtual asset allocate_cash(const budget_object& budget) = 0;
@@ -42,6 +44,10 @@ protected:
 public:
     bool is_fund_budget_exists() const override;
 
+    /** Gets the fund budget
+     */
+    virtual const budget_object& get_fund_budget() const override;
+
     virtual std::set<std::string> lookup_budget_owners(const std::string& lower_bound_owner_name,
                                                        uint32_t limit) const override;
 
@@ -59,10 +65,6 @@ public:
      * @returns a list of budget objects
      */
     virtual budget_refs_type get_budgets(const account_name_type& owner) const override;
-
-    /** Gets the fund budget
-     */
-    virtual const budget_object& get_fund_budget() const override;
 
     /** Get budget by id
      */
@@ -90,8 +92,7 @@ public:
     virtual const budget_object& create_budget(const account_object& owner,
                                                const asset& balance,
                                                const time_point_sec& deadline,
-                                               const optional<std::string>& content_permlink
-                                               = optional<std::string>()) override;
+                                               const std::string& content_permlink) override;
 
     /** Closing budget.
      *  To delete the budget, to cash back from budget to owner account.
@@ -123,7 +124,7 @@ private:
                                         const share_type& balance,
                                         const time_point_sec& start_date,
                                         const time_point_sec& end_date,
-                                        const optional<std::string>& content_permlink = optional<std::string>());
+                                        const std::string& content_permlink);
 };
 } // namespace chain
 } // namespace scorum
