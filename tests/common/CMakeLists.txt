@@ -12,6 +12,7 @@ set( SOURCES
   database_default_integration.cpp
   database_blog_integration.cpp
   actoractions.cpp
+  database_budget_integration.cpp
 )
 
 add_library(common_test 

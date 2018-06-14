@@ -69,10 +69,13 @@ dbs_budget::budget_refs_type dbs_budget::get_top_budgets(const uint16_t limit) c
         uint16_t selected = 0;
         for (auto it = idx.cbegin(), it_end = idx.cend(); it != it_end; ++it)
         {
+            if (_is_fund_budget(*it))
+                continue;
+
             if (++selected > limit)
                 break;
-            if (!_is_fund_budget(*it))
-                ret.push_back(std::cref(*it));
+
+            ret.push_back(std::cref(*it));
         }
 
         return ret;
