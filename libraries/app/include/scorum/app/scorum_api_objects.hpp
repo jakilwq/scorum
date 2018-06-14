@@ -266,8 +266,8 @@ struct budget_api_obj
         , content_permlink(fc::to_string(b.content_permlink))
         , created(b.created)
         , deadline(b.deadline)
-        , balance(b.balance)
-        , per_block(b.per_block)
+        , balance(b.balance, SCORUM_SYMBOL)
+        , per_block(b.per_block, SCORUM_SYMBOL)
         , last_cashout_block(b.last_cashout_block)
     {
     }
@@ -285,8 +285,9 @@ struct budget_api_obj
     time_point_sec created;
     time_point_sec deadline;
 
+    // only SCR tockens
     asset balance = asset(0, SCORUM_SYMBOL);
-    asset per_block;
+    asset per_block = asset(0, SCORUM_SYMBOL);
 
     uint32_t last_cashout_block = 0;
 };

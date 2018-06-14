@@ -45,7 +45,7 @@ SCORUM_TEST_CASE(fund_budget_initial_supply)
 {
     auto budget = budget_service.get_fund_budget();
 
-    BOOST_REQUIRE_EQUAL(budget.balance.amount, TEST_REWARD_INITIAL_SUPPLY.amount);
+    BOOST_REQUIRE_EQUAL(budget.balance, TEST_REWARD_INITIAL_SUPPLY.amount);
 }
 
 SCORUM_TEST_CASE(fund_budget_initial_deadline)

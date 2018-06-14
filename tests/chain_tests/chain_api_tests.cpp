@@ -115,7 +115,8 @@ SCORUM_TEST_CASE(get_chain_capital_test)
 
     BOOST_REQUIRE_EQUAL(capital.registration_pool_balance,
                         db.obtain_service<chain::dbs_registration_pool>().get().balance);
-    BOOST_REQUIRE_EQUAL(capital.fund_budget_balance, db.obtain_service<chain::dbs_budget>().get_fund_budget().balance);
+    BOOST_REQUIRE_EQUAL(capital.fund_budget_balance.amount,
+                        db.obtain_service<chain::dbs_budget>().get_fund_budget().balance);
 
     BOOST_REQUIRE_EQUAL(capital.dev_pool_scr_balance,
                         db.obtain_service<chain::dbs_development_committee>().get().scr_balance);

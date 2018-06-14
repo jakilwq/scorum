@@ -110,16 +110,17 @@ public:
     virtual asset allocate_cash(const budget_object& budget) override;
 
 private:
-    asset
-    _calculate_per_block(const time_point_sec& start_date, const time_point_sec& end_date, const asset& balance_amount);
-    asset _decrease_balance(const budget_object&, const asset& balance);
+    share_type _calculate_per_block(const time_point_sec& start_date,
+                                    const time_point_sec& end_date,
+                                    const share_type& balance_amount);
+    share_type _decrease_balance(const budget_object&, const share_type& balance);
     bool _is_fund_budget(const budget_object&) const;
     void _close_budget(const budget_object&);
     void _close_owned_budget(const budget_object&);
     void _close_fund_budget(const budget_object&);
     uint64_t _get_budget_count(const account_name_type& owner) const;
     const budget_object& _create_budget(const account_name_type& owner,
-                                        const asset& balance,
+                                        const share_type& balance,
                                         const time_point_sec& start_date,
                                         const time_point_sec& end_date,
                                         const optional<std::string>& content_permlink = optional<std::string>());

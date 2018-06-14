@@ -153,7 +153,7 @@ struct development_committee_transfer_operation
 struct development_committee_change_top_budgets_amount_operation
     : public proposal_base_operation<development_committee_change_top_budgets_amount_operation, development_committee_i>
 {
-    uint16_t amount = SCORUM_DEFAULT_TOP_BUDGETS_AMOUNT;
+    uint16_t amount = 0u;
 
     void validate() const;
 

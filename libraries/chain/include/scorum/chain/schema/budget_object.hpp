@@ -30,8 +30,9 @@ public:
     time_point_sec created = time_point_sec::min();
     time_point_sec deadline = time_point_sec::maximum();
 
-    asset balance = asset(0, SCORUM_SYMBOL);
-    asset per_block = asset(0, SCORUM_SYMBOL);
+    // in balance stored both SCORUM_SYMBOL and SP_SYMBOL tockens
+    share_type balance;
+    share_type per_block;
 
     uint32_t last_cashout_block = 0;
 };
@@ -51,12 +52,12 @@ typedef shared_multi_index_container<budget_object,
                                                 ordered_unique<tag<by_per_block>,
                                                                composite_key<budget_object,
                                                                              member<budget_object,
-                                                                                    asset,
+                                                                                    share_type,
                                                                                     &budget_object::per_block>,
                                                                              member<budget_object,
                                                                                     budget_id_type,
                                                                                     &budget_object::id>>,
-                                                               composite_key_compare<std::greater<asset>,
+                                                               composite_key_compare<std::greater<share_type>,
                                                                                      std::less<budget_id_type>>>>>
     budget_index;
 } // namespace chain

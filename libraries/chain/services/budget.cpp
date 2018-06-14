@@ -116,7 +116,7 @@ const budget_object& dbs_budget::create_fund_budget(const asset& balance, const 
     time_point_sec start_date = db_impl().obtain_service<dbs_dynamic_global_property>().get().time;
     FC_ASSERT(start_date < deadline, "Invalid deadline.");
 
-    return _create_budget(SCORUM_ROOT_POST_PARENT_ACCOUNT, balance, start_date, deadline);
+    return _create_budget(SCORUM_ROOT_POST_PARENT_ACCOUNT, balance.amount, start_date, deadline);
 }
 
 const budget_object& dbs_budget::create_budget(const account_object& owner,
@@ -140,7 +140,8 @@ const budget_object& dbs_budget::create_budget(const account_object& owner,
     FC_ASSERT(dprops.circulating_capital > balance, "Invalid balance. Must ${1} > ${2}.", ("1", dprops.circulating_capital)("2", balance));
     // clang-format on
 
-    const budget_object& new_budget = _create_budget(owner.name, balance, start_date, deadline, content_permlink);
+    const budget_object& new_budget
+        = _create_budget(owner.name, balance.amount, start_date, deadline, content_permlink);
 
     account_service.decrease_balance(owner, balance);
 
@@ -150,7 +151,7 @@ const budget_object& dbs_budget::create_budget(const account_object& owner,
 }
 
 const budget_object& dbs_budget::_create_budget(const account_name_type& owner,
-                                                const asset& balance,
+                                                const share_type& balance,
                                                 const time_point_sec& start_date,
                                                 const time_point_sec& end_date,
                                                 const optional<std::string>& content_permlink)
@@ -190,15 +191,17 @@ asset dbs_budget::allocate_cash(const budget_object& budget)
     time_point_sec t = db_impl().head_block_time();
     auto head_block_num = db_impl().head_block_num();
 
+    asset ret(0, _is_fund_budget(budget) ? SP_SYMBOL : SCORUM_SYMBOL);
+
     if (budget.last_cashout_block >= head_block_num)
     {
-        return asset(0, budget.balance.symbol()); // empty (allocation waits new block)
+        return ret; // empty (allocation waits new block)
     }
 
-    FC_ASSERT(budget.per_block.amount > 0, "Invalid per_block.");
-    asset ret = _decrease_balance(budget, budget.per_block);
+    FC_ASSERT(budget.per_block > 0, "Invalid per_block.");
+    ret.amount = _decrease_balance(budget, budget.per_block);
 
-    if (budget.balance.amount > 0)
+    if (budget.balance > 0)
     {
         // for fund budget if we have missed blocks we continue payments even after deadline until money is over
         if (t < budget.deadline || _is_fund_budget(budget))
@@ -213,9 +216,9 @@ asset dbs_budget::allocate_cash(const budget_object& budget)
     return ret;
 }
 
-asset dbs_budget::_calculate_per_block(const time_point_sec& start_date,
-                                       const time_point_sec& end_date,
-                                       const asset& balance)
+share_type dbs_budget::_calculate_per_block(const time_point_sec& start_date,
+                                            const time_point_sec& end_date,
+                                            const share_type& balance)
 {
     FC_ASSERT(start_date.sec_since_epoch() < end_date.sec_since_epoch(),
               "Invalid date interval. Start time ${1} must be less end time ${2}", ("1", start_date)("2", end_date));
@@ -231,22 +234,22 @@ asset dbs_budget::_calculate_per_block(const time_point_sec& start_date,
     ret /= delta_in_sec;
 
     // non zero budget must return at least one satoshi
-    if (ret.amount < 1)
+    if (ret < 1)
     {
-        ret.amount = 1;
+        ret = 1;
     }
 
     return ret;
 }
 
-asset dbs_budget::_decrease_balance(const budget_object& budget, const asset& balance)
+share_type dbs_budget::_decrease_balance(const budget_object& budget, const share_type& balance)
 {
-    FC_ASSERT(balance.amount > 0, "Invalid balance.");
+    FC_ASSERT(balance > 0, "Invalid balance.");
 
-    asset ret(0, SCORUM_SYMBOL);
+    share_type ret;
 
     update(budget, [&](budget_object& b) {
-        if (b.balance.amount > 0 && balance.amount <= b.balance.amount)
+        if (b.balance > 0 && balance <= b.balance)
         {
             b.balance -= balance;
             ret = balance;
@@ -254,7 +257,7 @@ asset dbs_budget::_decrease_balance(const budget_object& budget, const asset& ba
         else
         {
             ret = b.balance;
-            b.balance.amount = 0;
+            b.balance = 0;
         }
     });
 
@@ -288,10 +291,10 @@ void dbs_budget::_close_owned_budget(const budget_object& budget)
 
     // withdraw all balance rest asset back to owner
     //
-    asset repayable = budget.balance;
+    asset repayable(budget.balance, SCORUM_SYMBOL);
     if (repayable.amount > 0)
     {
-        repayable = _decrease_balance(budget, repayable);
+        repayable.amount = _decrease_balance(budget, repayable.amount);
         account_service.increase_balance(owner, repayable);
 
         db_impl().obtain_service<dbs_dynamic_global_property>().update(

@@ -61,7 +61,7 @@ SCORUM_TEST_CASE(check_per_block_reward_distribution_with_fund_budget_only)
     generate_block();
 
     const auto& fund_budget = budget_service.get_fund_budget();
-    asset initial_per_block_reward = fund_budget.per_block;
+    asset initial_per_block_reward = asset(fund_budget.per_block, SP_SYMBOL);
 
     auto witness_reward = initial_per_block_reward * SCORUM_WITNESS_PER_BLOCK_REWARD_PERCENT / SCORUM_100_PERCENT;
     auto active_voters_reward

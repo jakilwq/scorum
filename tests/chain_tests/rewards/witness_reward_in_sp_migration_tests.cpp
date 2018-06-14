@@ -128,7 +128,7 @@ BOOST_FIXTURE_TEST_SUITE(witness_reward_in_sp_migration_tests, witness_reward_in
 BOOST_AUTO_TEST_CASE(migration_constants_check)
 {
     const auto& fund_budget = budget_service.get_fund_budget();
-    asset initial_per_block_reward = fund_budget.per_block;
+    asset initial_per_block_reward = asset(fund_budget.per_block, SP_SYMBOL);
 
     asset witness_reward = initial_per_block_reward * SCORUM_WITNESS_PER_BLOCK_REWARD_PERCENT / SCORUM_100_PERCENT;
 

@@ -42,7 +42,7 @@ struct fifa_world_cup_2018_bounty_reward_fund_fixture : public database_blog_int
         actor(initdelegate).give_sp(simon, feed_amount / 2);
 
         const auto& fund_budget = budget_service.get_fund_budget();
-        asset initial_per_block_reward = fund_budget.per_block;
+        asset initial_per_block_reward = asset(fund_budget.per_block, SP_SYMBOL);
 
         asset witness_reward = initial_per_block_reward * SCORUM_WITNESS_PER_BLOCK_REWARD_PERCENT / SCORUM_100_PERCENT;
         asset active_voters_reward

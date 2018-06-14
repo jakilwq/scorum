@@ -153,7 +153,7 @@ SCORUM_TEST_CASE(create_budget_check)
 
     BOOST_REQUIRE(budget.owner == "alice");
     BOOST_REQUIRE(!budget.content_permlink.compare(BUDGET_CONTENT_PERMLINK));
-    BOOST_REQUIRE(budget.balance == balance);
+    BOOST_REQUIRE(budget.balance == balance.amount);
     BOOST_REQUIRE(budget.deadline == default_deadline);
 
     BOOST_REQUIRE_NO_THROW(validate_database());

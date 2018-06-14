@@ -75,9 +75,9 @@ SCORUM_TEST_CASE(is_const_ref_to_same_memory)
 
     const auto& budget = budget_service.create_budget(alice, balance, deadline);
 
-    db.modify(budget, [&](budget_object& b) { b.balance.amount -= 1; });
+    db.modify(budget, [&](budget_object& b) { b.balance -= 1; });
 
-    BOOST_REQUIRE(budget.balance.amount == (BUDGET_BALANCE_DEFAULT - 1));
+    BOOST_REQUIRE(budget.balance == (BUDGET_BALANCE_DEFAULT - 1));
 }
 
 SCORUM_TEST_CASE(owned_budget_creation)
@@ -89,8 +89,8 @@ SCORUM_TEST_CASE(owned_budget_creation)
 
     const auto& budget = budget_service.create_budget(alice, balance, deadline);
 
-    BOOST_CHECK(budget.balance.amount == BUDGET_BALANCE_DEFAULT);
-    BOOST_CHECK(budget.per_block.amount == BUDGET_PER_BLOCK_DEFAULT);
+    BOOST_CHECK(budget.balance == BUDGET_BALANCE_DEFAULT);
+    BOOST_CHECK(budget.per_block == BUDGET_PER_BLOCK_DEFAULT);
 
     reqired_alice_balance -= BUDGET_BALANCE_DEFAULT;
 
@@ -112,8 +112,8 @@ SCORUM_TEST_CASE(second_owned_budget_creation)
 
     const auto& budget = budget_service.create_budget(alice, balance, deadline);
 
-    BOOST_CHECK(budget.balance.amount == BUDGET_BALANCE_DEFAULT);
-    BOOST_CHECK(budget.per_block.amount == BUDGET_PER_BLOCK_DEFAULT);
+    BOOST_CHECK(budget.balance == BUDGET_BALANCE_DEFAULT);
+    BOOST_CHECK(budget.per_block == BUDGET_PER_BLOCK_DEFAULT);
 
     reqired_alice_balance -= BUDGET_BALANCE_DEFAULT;
 

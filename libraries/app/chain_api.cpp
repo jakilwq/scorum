@@ -123,7 +123,7 @@ chain_capital_api_obj chain_api::get_chain_capital() const
         capital.total_witness_reward_sp = dpo.total_witness_reward_sp;
 
         capital.registration_pool_balance = _db.obtain_service<dbs_registration_pool>().get().balance;
-        capital.fund_budget_balance = _db.obtain_service<dbs_budget>().get_fund_budget().balance;
+        capital.fund_budget_balance = asset(_db.obtain_service<dbs_budget>().get_fund_budget().balance, SP_SYMBOL);
 
         capital.dev_pool_scr_balance = _db.obtain_service<dbs_development_committee>().get().scr_balance;
         capital.dev_pool_sp_balance = _db.obtain_service<dbs_development_committee>().get().sp_balance;

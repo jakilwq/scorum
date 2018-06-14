@@ -90,7 +90,8 @@ SCORUM_TEST_CASE(per_block_sp_payment_from_fund_budget)
         auto post = create_post(alice).push();
         post.vote(bob).in_block();
 
-        auto active_sp_holders_reward = get_active_voters_reward(budget_service.get_fund_budget().per_block);
+        asset active_sp_holders_reward
+            = get_active_voters_reward(asset(budget_service.get_fund_budget().per_block, SP_SYMBOL));
 
         BOOST_REQUIRE_EQUAL(account_service.get_account(bob.name).scorumpower,
                             bob_sp_before + active_sp_holders_reward);
@@ -123,7 +124,8 @@ SCORUM_TEST_CASE(per_block_sp_payment_from_fund_budget_if_no_active_voters_exist
     {
         generate_block();
 
-        auto active_sp_holders_reward = get_active_voters_reward(budget_service.get_fund_budget().per_block);
+        auto active_sp_holders_reward
+            = get_active_voters_reward(asset(budget_service.get_fund_budget().per_block, SP_SYMBOL));
 
         auto& balancer = voters_reward_sp_service.get();
 
@@ -163,7 +165,8 @@ SCORUM_TEST_CASE(per_block_sp_payment_division_from_fund_budget)
         post.vote(bob).push();
         post.vote(alice).in_block();
 
-        auto active_sp_holders_reward = get_active_voters_reward(budget_service.get_fund_budget().per_block);
+        auto active_sp_holders_reward
+            = get_active_voters_reward(asset(budget_service.get_fund_budget().per_block, SP_SYMBOL));
 
         auto alice_reward = active_sp_holders_reward * alice.sp_percent / 100;
         auto bob_reward = active_sp_holders_reward - alice_reward;
@@ -199,7 +202,8 @@ SCORUM_TEST_CASE(per_block_payments_are_stopped_after_battary_restored)
 
         auto generated_blocks = 1 + generate_blocks(last_vote_cashout_time - SCORUM_BLOCK_INTERVAL, false);
 
-        auto active_sp_holders_reward = get_active_voters_reward(budget_service.get_fund_budget().per_block);
+        auto active_sp_holders_reward
+            = get_active_voters_reward(asset(budget_service.get_fund_budget().per_block, SP_SYMBOL));
 
         BOOST_REQUIRE_EQUAL(voter.scorumpower, bob_sp_before + active_sp_holders_reward * generated_blocks);
 
