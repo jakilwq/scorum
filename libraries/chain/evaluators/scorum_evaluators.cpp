@@ -1183,7 +1183,17 @@ void create_budget_evaluator::do_apply(const create_budget_operation& op)
 
     const auto& owner = account_service.get_account(op.owner);
 
-    budget_service.create_budget(owner, op.balance, op.deadline, op.content_permlink);
+    switch (op.type)
+    {
+    case budget_for_type::budget_for_posts:
+        budget_service.create_post_budget(owner, op.balance, op.deadline, op.content_permlink);
+        break;
+    case budget_for_type::budget_for_banners:
+        budget_service.create_banner_budget(owner, op.balance, op.deadline, op.content_permlink);
+        break;
+    default:
+        FC_ASSERT("Unknown budget type");
+    }
 }
 
 void close_budget_evaluator::do_apply(const close_budget_operation& op)

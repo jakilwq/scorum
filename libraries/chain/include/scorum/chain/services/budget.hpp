@@ -14,18 +14,25 @@ struct budget_service_i : public base_service_i<budget_object>
     virtual std::set<std::string> lookup_budget_owners(const std::string& lower_bound_owner_name,
                                                        uint32_t limit) const = 0;
     virtual budget_refs_type get_budgets() const = 0;
-    virtual budget_refs_type get_top_budgets(const uint16_t limit) const = 0;
+    virtual budget_refs_type get_top_budgets(const budget_type, const uint16_t limit) const = 0;
     virtual budget_refs_type get_budgets(const account_name_type& owner) const = 0;
     virtual const budget_object& get_budget(budget_id_type id) const = 0;
 
-    virtual const budget_object& create_budget(const account_object& owner,
-                                               const asset& balance,
-                                               const time_point_sec& deadline,
-                                               const std::string& content_permlink)
+    virtual const budget_object& create_fund_budget(const asset& balance, const time_point_sec& deadline) = 0;
+
+    virtual const budget_object& create_post_budget(const account_object& owner,
+                                                    const asset& balance,
+                                                    const time_point_sec& deadline,
+                                                    const std::string& content_permlink)
         = 0;
+    virtual const budget_object& create_banner_budget(const account_object& owner,
+                                                      const asset& balance,
+                                                      const time_point_sec& deadline,
+                                                      const std::string& content_permlink)
+        = 0;
+
     virtual void close_budget(const budget_object& budget) = 0;
 
-    virtual const budget_object& create_fund_budget(const asset& balance, const time_point_sec& deadline) = 0;
     virtual bool is_fund_budget_exists() const = 0;
 
     virtual asset allocate_cash(const budget_object& budget) = 0;
@@ -57,7 +64,7 @@ public:
      */
     virtual budget_refs_type get_budgets() const override;
 
-    virtual budget_refs_type get_top_budgets(const uint16_t limit) const override;
+    virtual budget_refs_type get_top_budgets(const budget_type, const uint16_t limit) const override;
 
     /** Lists all budgets registered for owner.
      *
@@ -80,19 +87,14 @@ public:
      */
     virtual const budget_object& create_fund_budget(const asset& balance, const time_point_sec& deadline) override;
 
-    /** Creates budget.
-     *  The owner has abilities for all operations (for update, close and schedule operations).
-     *
-     * @param owner the name of the owner
-     * @param balance the total balance (in SCR)
-     * @param deadline the deadline time to close budget (even if there is rest of balance)
-     * @param content_permlink the budget target identity (post or other)
-     * @returns a budget object
-     */
-    virtual const budget_object& create_budget(const account_object& owner,
-                                               const asset& balance,
-                                               const time_point_sec& deadline,
-                                               const std::string& content_permlink) override;
+    virtual const budget_object& create_post_budget(const account_object& owner,
+                                                    const asset& balance,
+                                                    const time_point_sec& deadline,
+                                                    const std::string& content_permlink) override;
+    virtual const budget_object& create_banner_budget(const account_object& owner,
+                                                      const asset& balance,
+                                                      const time_point_sec& deadline,
+                                                      const std::string& content_permlink) override;
 
     /** Closing budget.
      *  To delete the budget, to cash back from budget to owner account.
@@ -120,11 +122,17 @@ private:
     void _close_owned_budget(const budget_object&);
     void _close_fund_budget(const budget_object&);
     uint64_t _get_budget_count(const account_name_type& owner) const;
+    const budget_object& _create_owned_budget(const budget_type,
+                                              const account_object& owner,
+                                              const asset& balance,
+                                              const time_point_sec& deadline,
+                                              const std::string& content_permlink);
     const budget_object& _create_budget(const account_name_type& owner,
                                         const share_type& balance,
                                         const time_point_sec& start_date,
                                         const time_point_sec& end_date,
-                                        const std::string& content_permlink);
+                                        const std::string& content_permlink,
+                                        const optional<budget_type>& ptype = optional<budget_type>());
 };
 } // namespace chain
 } // namespace scorum

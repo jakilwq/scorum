@@ -116,15 +116,21 @@ struct development_committee_transfer_evaluator
     void do_apply(const operation_type& o);
 };
 
-struct development_committee_change_top_budgets_amount_evaluator
-    : public proposal_operation_evaluator<development_committee_change_top_budgets_amount_evaluator>
-{
-    typedef development_committee_change_top_budgets_amount_operation operation_type;
+#define SCORUM_MAKE_TOP_BUDGET_AMOUNT_EVALUATOR_CLS_NAME(TYPE)                                                         \
+    BOOST_PP_SEQ_CAT((development_committee_change_top_)(TYPE)(_budgets_amount_evaluator))
+#define SCORUM_DEVELOPMENT_COMMITTEE_CHANGE_TOP_BUDGET_AMOUNT_EVALUATOR_DECLARE(TYPE)                                  \
+    struct SCORUM_MAKE_TOP_BUDGET_AMOUNT_EVALUATOR_CLS_NAME(TYPE)                                                      \
+        : public proposal_operation_evaluator<SCORUM_MAKE_TOP_BUDGET_AMOUNT_EVALUATOR_CLS_NAME(TYPE)>                  \
+    {                                                                                                                  \
+        typedef SCORUM_MAKE_TOP_BUDGET_AMOUNT_OPERATION_CLS_NAME(TYPE) operation_type;                                 \
+                                                                                                                       \
+        SCORUM_MAKE_TOP_BUDGET_AMOUNT_EVALUATOR_CLS_NAME(TYPE)(data_service_factory_i & r);                            \
+                                                                                                                       \
+        void do_apply(const operation_type& o);                                                                        \
+    };
 
-    development_committee_change_top_budgets_amount_evaluator(data_service_factory_i& r);
-
-    void do_apply(const operation_type& o);
-};
+SCORUM_DEVELOPMENT_COMMITTEE_CHANGE_TOP_BUDGET_AMOUNT_EVALUATOR_DECLARE(post)
+SCORUM_DEVELOPMENT_COMMITTEE_CHANGE_TOP_BUDGET_AMOUNT_EVALUATOR_DECLARE(banner)
 
 namespace registration_committee {
 
@@ -152,8 +158,6 @@ using proposal_change_quorum_evaluator
 
 using proposal_withdraw_vesting_evaluator = development_committee_withdraw_vesting_evaluator;
 using proposal_transfer_evaluator = development_committee_transfer_evaluator;
-
-using proposal_change_top_budgets_amount_evaluator = development_committee_change_top_budgets_amount_evaluator;
 
 } // namespace development_committee
 

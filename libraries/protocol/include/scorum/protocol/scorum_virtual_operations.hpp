@@ -229,16 +229,20 @@ struct allocate_cash_from_advertising_budget_operation : public virtual_operatio
     allocate_cash_from_advertising_budget_operation()
     {
     }
-    allocate_cash_from_advertising_budget_operation(const account_name_type& owner_,
+    allocate_cash_from_advertising_budget_operation(const budget_type type_,
+                                                    const account_name_type& owner_,
                                                     const std::string& permlink_,
                                                     const asset& cash_)
-        : owner(owner_)
+        : type(type_)
+        , owner(owner_)
         , permlink(permlink_)
         , cash(cash_)
     {
-        FC_ASSERT(cash_.symbol() == SCORUM_SYMBOL);
+        FC_ASSERT(type != budget_type::internal);
+        FC_ASSERT(cash.symbol() == SCORUM_SYMBOL);
     }
 
+    budget_type type = budget_type::internal;
     account_name_type owner;
     std::string permlink;
     asset cash = asset(0, SCORUM_SYMBOL);

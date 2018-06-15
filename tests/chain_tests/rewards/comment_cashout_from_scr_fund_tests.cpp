@@ -40,8 +40,9 @@ struct comment_cashout_from_scr_fund_fixture : public database_blog_integration_
         const int deadline_block_count = 10;
         const auto& owner = account_service.get_account(alice.name);
 
-        budget_service.create_budget(owner, ASSET_SCR(deadline_block_count),
-                                     db.head_block_time() + SCORUM_BLOCK_INTERVAL * deadline_block_count, "adidas");
+        budget_service.create_post_budget(owner, ASSET_SCR(deadline_block_count),
+                                          db.head_block_time() + SCORUM_BLOCK_INTERVAL * deadline_block_count,
+                                          "adidas");
 
         generate_blocks(deadline_block_count);
 

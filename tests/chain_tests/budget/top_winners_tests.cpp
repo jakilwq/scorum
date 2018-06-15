@@ -23,8 +23,11 @@ struct top_winners_bundgets_fixture : public database_budget_integration_fixture
     {
         open_database();
 
-        max_top_amount = dev_pool_service.get().top_budgets_amount;
+        max_top_amount = dev_pool_service.get().top_budgets_amounts.at(budget_type::post);
+
         BOOST_REQUIRE_GT(max_top_amount, 0u);
+        BOOST_REQUIRE_EQUAL(max_top_amount, dev_pool_service.get().top_budgets_amounts.at(budget_type::banner));
+
         budget_amount = ASSET_SCR(12e+3);
         int feed_amount = (budget_amount.amount * (max_top_amount + 10)).value;
 
@@ -43,11 +46,11 @@ struct top_winners_bundgets_fixture : public database_budget_integration_fixture
         top_bob_deadline_time = alice_deadline_time - deadline_step;
     }
 
-    void fill_top_with_actor(Actor& actor, const fc::time_point_sec& actor_deadline_time)
+    void fill_top_with_actor(const budget_type type, Actor& actor, const fc::time_point_sec& actor_deadline_time)
     {
         for (size_t ci = 0u; ci < max_top_amount; ++ci)
         {
-            create_advertising_budget(actor, budget_amount, actor_deadline_time).push_in_block();
+            create_advertising_budget(type, actor, budget_amount, actor_deadline_time).push_in_block();
         }
     }
 
@@ -66,18 +69,20 @@ struct top_winners_bundgets_fixture : public database_budget_integration_fixture
     budget_service_i& budget_service;
 };
 
-struct advertising_bundgets_visitor
+struct advertising_bundgets_check_visitor
 {
     typedef void result_type;
 
-    advertising_bundgets_visitor(Actor& checked_actor)
-        : _checked_actor(checked_actor)
+    advertising_bundgets_check_visitor(const budget_type checking_type, Actor& checking_actor)
+        : _checking_type(checking_type)
+        , _checking_actor(checking_actor)
     {
     }
 
     void operator()(const allocate_cash_from_advertising_budget_operation& op) const
     {
-        BOOST_CHECK_EQUAL((std::string)_checked_actor.name, op.owner);
+        BOOST_CHECK_EQUAL((int)_checking_type, (int)op.type);
+        BOOST_CHECK_EQUAL((std::string)_checking_actor.name, op.owner);
     }
 
     template <typename Op> void operator()(Op&&) const
@@ -85,67 +90,82 @@ struct advertising_bundgets_visitor
     }
 
 private:
-    Actor& _checked_actor;
+    budget_type _checking_type;
+    Actor& _checking_actor;
 };
 
 BOOST_FIXTURE_TEST_SUITE(top_winners_bundgets_tests, top_winners_bundgets_fixture)
 
 BOOST_AUTO_TEST_CASE(get_monopoly_top_budgets_check)
 {
-    fill_top_with_actor(alice, alice_deadline_time);
+    fill_top_with_actor(budget_type::post, alice, alice_deadline_time);
 
     BOOST_REQUIRE_EQUAL(budget_service.get_budgets(alice.name).size(), max_top_amount);
-    BOOST_REQUIRE_EQUAL(budget_service.get_top_budgets(max_top_amount).size(), max_top_amount);
+    BOOST_REQUIRE_EQUAL(budget_service.get_top_budgets(budget_type::post, max_top_amount).size(), max_top_amount);
 }
 
 BOOST_AUTO_TEST_CASE(get_concurrent_top_budgets_check)
 {
-    fill_top_with_actor(alice, alice_deadline_time);
+    fill_top_with_actor(budget_type::post, alice, alice_deadline_time);
 
-    create_advertising_budget(bob, budget_amount, bob_deadline_time).push_in_block();
-    create_advertising_budget(bob, budget_amount, bob_deadline_time).push_in_block();
+    create_advertising_budget(budget_type::post, bob, budget_amount, bob_deadline_time).push_in_block();
+    create_advertising_budget(budget_type::post, bob, budget_amount, bob_deadline_time).push_in_block();
 
-    BOOST_REQUIRE_EQUAL(budget_service.get_top_budgets(max_top_amount).size(), max_top_amount);
+    BOOST_REQUIRE_EQUAL(budget_service.get_top_budgets(budget_type::post, max_top_amount).size(), max_top_amount);
 
     // alice is winner
-    for (const budget_object& budget : budget_service.get_top_budgets(max_top_amount))
+    for (const budget_object& budget : budget_service.get_top_budgets(budget_type::post, max_top_amount))
     {
         BOOST_CHECK_EQUAL((std::string)budget.owner, alice.name);
     }
 
-    fill_top_with_actor(bob, top_bob_deadline_time);
+    fill_top_with_actor(budget_type::post, bob, top_bob_deadline_time);
 
     // bob became winner
-    for (const budget_object& budget : budget_service.get_top_budgets(max_top_amount))
+    for (const budget_object& budget : budget_service.get_top_budgets(budget_type::post, max_top_amount))
     {
         BOOST_CHECK_EQUAL((std::string)budget.owner, bob.name);
     }
 }
 
-BOOST_AUTO_TEST_CASE(allocation_from_top_budgets_check)
+BOOST_AUTO_TEST_CASE(allocation_from_top_budgets_owner_check)
 {
     {
-        fill_top_with_actor(alice, alice_deadline_time);
+        fill_top_with_actor(budget_type::post, alice, alice_deadline_time);
 
-        create_advertising_budget(bob, budget_amount, bob_deadline_time).push_in_block();
-        create_advertising_budget(bob, budget_amount, bob_deadline_time).push_in_block();
+        create_advertising_budget(budget_type::post, bob, budget_amount, bob_deadline_time).push_in_block();
+        create_advertising_budget(budget_type::post, bob, budget_amount, bob_deadline_time).push_in_block();
 
-        // clang-format off
-        boost::signals2::scoped_connection conn = db.post_apply_operation.connect(
-            [&](const operation_notification& note)
-        {
-            note.op.visit(advertising_bundgets_visitor(alice));
-        });
-        // clang-format on
+        boost::signals2::scoped_connection(db.post_apply_operation.connect([&](const operation_notification& note) {
+            note.op.visit(advertising_bundgets_check_visitor(budget_type::post, alice));
+        }));
 
         generate_blocks(5);
     }
 
     {
-        fill_top_with_actor(bob, top_bob_deadline_time);
+        fill_top_with_actor(budget_type::post, bob, top_bob_deadline_time);
 
-        boost::signals2::scoped_connection conn = db.post_apply_operation.connect(
-            [&](const operation_notification& note) { note.op.visit(advertising_bundgets_visitor(bob)); });
+        boost::signals2::scoped_connection(db.post_apply_operation.connect([&](const operation_notification& note) {
+            note.op.visit(advertising_bundgets_check_visitor(budget_type::post, bob));
+        }));
+
+        generate_blocks(5);
+    }
+}
+
+BOOST_AUTO_TEST_CASE(allocation_from_top_budgets_different_type_check)
+{
+    {
+        fill_top_with_actor(budget_type::post, alice, alice_deadline_time);
+        fill_top_with_actor(budget_type::banner, bob, bob_deadline_time);
+
+        boost::signals2::scoped_connection(db.post_apply_operation.connect([&](const operation_notification& note) {
+            note.op.visit(advertising_bundgets_check_visitor(budget_type::post, alice));
+        }));
+        boost::signals2::scoped_connection(db.post_apply_operation.connect([&](const operation_notification& note) {
+            note.op.visit(advertising_bundgets_check_visitor(budget_type::banner, bob));
+        }));
 
         generate_blocks(5);
     }

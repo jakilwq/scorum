@@ -1025,7 +1025,7 @@ public:
     std::vector<budget_api_obj> get_budgets(const std::string& account_name);
 
     /**
-     *  This method will create new budget linked to owner account.
+     *  This method will create new budget (FOR POSTS) linked to owner account.
      *
      *  @warning The owner account must have sufficient balance for budget
      *
@@ -1035,11 +1035,28 @@ public:
      *  @param deadline the deadline time to close budget (even if there is rest of balance)
      *  @param broadcast
      */
-    annotated_signed_transaction create_budget(const std::string& budget_owner,
-                                               const std::string& content_permlink,
-                                               const asset& balance,
-                                               const time_point_sec deadline,
-                                               const bool broadcast);
+    annotated_signed_transaction create_budget_for_posts(const std::string& budget_owner,
+                                                         const std::string& content_permlink,
+                                                         const asset& balance,
+                                                         const time_point_sec deadline,
+                                                         const bool broadcast);
+
+    /**
+     *  This method will create new budget (FOR BANNERS) linked to owner account.
+     *
+     *  @warning The owner account must have sufficient balance for budget
+     *
+     *  @param budget_owner the future owner of creating budget
+     *  @param content_permlink the budget target identity (post or other)
+     *  @param balance
+     *  @param deadline the deadline time to close budget (even if there is rest of balance)
+     *  @param broadcast
+     */
+    annotated_signed_transaction create_budget_for_banners(const std::string& budget_owner,
+                                                           const std::string& content_permlink,
+                                                           const asset& balance,
+                                                           const time_point_sec deadline,
+                                                           const bool broadcast);
 
     /**
      *  Closing the budget. The budget rest is returned to the owner's account
@@ -1191,10 +1208,20 @@ public:
                                                                    bool broadcast);
 
     /**
-     * Create proposal for set up a vesting withdraw request.
+     * Create proposal for set up a top post amount request.
      */
-    annotated_signed_transaction
-    development_pool_top_budget(const std::string& initiator, uint16_t amount, uint32_t lifetime_sec, bool broadcast);
+    annotated_signed_transaction development_pool_top_post_budget(const std::string& initiator,
+                                                                  uint16_t amount,
+                                                                  uint32_t lifetime_sec,
+                                                                  bool broadcast);
+
+    /**
+     * Create proposal for set up a top banner amount request.
+     */
+    annotated_signed_transaction development_pool_top_banner_budget(const std::string& initiator,
+                                                                    uint16_t amount,
+                                                                    uint32_t lifetime_sec,
+                                                                    bool broadcast);
 
     /** Initiating Atomic Swap transfer from initiator to participant.
      *  Asset (amount) will be locked for 48 hours while is not redeemed or refund automatically by timeout.
@@ -1294,6 +1321,14 @@ public:
      * Close wallet application
      */
     void exit();
+
+private:
+    annotated_signed_transaction _create_budget(budget_for_type type,
+                                                const std::string& budget_owner,
+                                                const std::string& content_permlink,
+                                                const asset& balance,
+                                                const time_point_sec deadline,
+                                                const bool broadcast);
 
 public:
     fc::signal<void(bool)> lock_changed;
@@ -1399,7 +1434,8 @@ FC_API( scorum::wallet::wallet_api,
         (get_encrypted_memo)
         (decrypt_memo)
         (decline_voting_rights)
-        (create_budget)
+        (create_budget_for_posts)
+        (create_budget_for_banners)
         (close_budget)
 
         // Registration committee api
@@ -1426,7 +1462,8 @@ FC_API( scorum::wallet::wallet_api,
         (get_development_committee)
         (development_pool_transfer)
         (development_pool_withdraw_vesting)
-        (development_pool_top_budget)
+        (development_pool_top_post_budget)
+        (development_pool_top_banner_budget)
 
         // Atomic Swap API
         (atomicswap_initiate)

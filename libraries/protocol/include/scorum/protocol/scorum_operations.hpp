@@ -624,6 +624,12 @@ struct delegate_scorumpower_operation : public base_operation
     void validate() const;
 };
 
+enum class budget_for_type
+{
+    budget_for_posts,
+    budget_for_banners
+};
+
 struct create_budget_operation : public base_operation
 {
     account_name_type owner;
@@ -631,6 +637,8 @@ struct create_budget_operation : public base_operation
 
     asset balance = asset(0, SCORUM_SYMBOL);
     time_point_sec deadline;
+
+    budget_for_type type = budget_for_type::budget_for_posts;
 
     void validate() const;
     void get_required_active_authorities(flat_set<account_name_type>& a) const

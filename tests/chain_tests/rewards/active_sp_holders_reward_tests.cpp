@@ -55,7 +55,7 @@ public:
         auto advertising_budget = ASSET_SCR(2e+9);
         auto deadline = db.get_slot_time(1);
 
-        BOOST_CHECK_NO_THROW(budget_service.create_budget(account, advertising_budget, deadline, "pepsi"));
+        BOOST_CHECK_NO_THROW(budget_service.create_banner_budget(account, advertising_budget, deadline, "pepsi"));
 
         auto& reward_service = db.obtain_service<dbs_content_reward_scr>();
         reward_service.update(

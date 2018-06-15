@@ -38,7 +38,7 @@ void process_funds::on_apply(block_task_context& ctx)
     // and expect that after initial supply is handed out(fund budget is over) reward budgets will be created by our
     // users(through the purchase of advertising). Advertising budgets are in SCR.
 
-    asset original_fund_reward = asset(0, SP_SYMBOL);
+    asset original_fund_reward(0, SP_SYMBOL);
     if (budget_service.is_fund_budget_exists())
     {
         const budget_object& budget = budget_service.get_fund_budget();
@@ -46,17 +46,24 @@ void process_funds::on_apply(block_task_context& ctx)
     }
     distribute_reward(ctx, original_fund_reward); // distribute SP
 
-    asset advertising_budgets_reward = asset(0, SCORUM_SYMBOL);
-    for (const budget_object& budget : budget_service.get_top_budgets(dev_service.get().top_budgets_amount))
-    {
-        auto cash = budget_service.allocate_cash(budget);
-        if (cash.amount > 0)
+    asset advertising_budgets_reward(0, SCORUM_SYMBOL);
+
+    auto alocate_cash_from_advertising_budgets = [&](const budget_type type) {
+        for (const budget_object& budget :
+             budget_service.get_top_budgets(type, dev_service.get().top_budgets_amounts.at(type)))
         {
-            advertising_budgets_reward += cash;
-            ctx.push_virtual_operation(allocate_cash_from_advertising_budget_operation(
-                budget.owner, fc::to_string(budget.content_permlink), cash));
+            auto cash = budget_service.allocate_cash(budget);
+            if (cash.amount > 0)
+            {
+                advertising_budgets_reward += cash;
+                ctx.push_virtual_operation(allocate_cash_from_advertising_budget_operation(
+                    type, budget.owner, fc::to_string(budget.content_permlink), cash));
+            }
         }
-    }
+    };
+
+    alocate_cash_from_advertising_budgets(budget_type::post);
+    alocate_cash_from_advertising_budgets(budget_type::banner);
 
     // 50% of the revenue goes to support and develop the product, namely,
     // towards the company's R&D center.

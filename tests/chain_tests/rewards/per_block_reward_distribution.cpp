@@ -90,7 +90,7 @@ SCORUM_TEST_CASE(check_per_block_reward_distribution_with_advertising_budget)
     content_reward_scr_service.update(
         [&](content_reward_balancer_scr_object& b) { b.current_per_block_reward = advertising_budget; });
 
-    BOOST_CHECK_NO_THROW(budget_service.create_budget(account, advertising_budget, deadline, "coca-cola"));
+    BOOST_CHECK_NO_THROW(budget_service.create_banner_budget(account, advertising_budget, deadline, "coca-cola"));
 
     asset balance_before = account.balance;
 

@@ -36,9 +36,22 @@ database_budget_integration_fixture::advertising_budget_op::push_in_block()
 }
 
 database_budget_integration_fixture::advertising_budget_op
-database_budget_integration_fixture::create_advertising_budget(Actor& actor, asset balance, fc::time_point_sec deadline)
+database_budget_integration_fixture::create_advertising_budget(const budget_type type,
+                                                               Actor& actor,
+                                                               const asset& balance,
+                                                               const fc::time_point_sec& deadline)
 {
     create_budget_operation op;
+    switch (type)
+    {
+    case budget_type::post:
+        op.type = budget_for_type::budget_for_posts;
+        break;
+    case budget_type::banner:
+        op.type = budget_for_type::budget_for_banners;
+        break;
+    default:;
+    }
     op.owner = actor.name;
     op.content_permlink = get_unique_permlink();
     op.balance = balance;

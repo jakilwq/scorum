@@ -155,6 +155,9 @@ enum bandwidth_type
     forum, ///< Rate limiting for all forum related actions
     market ///< Rate limiting for all other actions
 };
+
+using scorum::protocol::budget_type;
+
 } // namespace chain
 } // namespace scorum
 

@@ -18,7 +18,7 @@ using namespace scorum::protocol;
 
 SCORUM_TEST_CASE(validate_development_committee_top_budgets_operaton)
 {
-    development_committee_change_top_budgets_amount_operation::operation_type op;
+    SCORUM_MAKE_TOP_BUDGET_AMOUNT_OPERATION_CLS_NAME(post)::operation_type op;
 
     SCORUM_REQUIRE_THROW(op.validate(), fc::assert_exception);
 
@@ -52,15 +52,15 @@ struct fixture : public shared_memory_fixture
 
 BOOST_FIXTURE_TEST_CASE(change_top_budgets_amount, fixture)
 {
-    development_committee_change_top_budgets_amount_operation::operation_type op;
+    SCORUM_MAKE_TOP_BUDGET_AMOUNT_OPERATION_CLS_NAME(post)::operation_type op;
 
     op.amount = 111;
 
-    development_committee_change_top_budgets_amount_evaluator evaluator(*services);
+    SCORUM_MAKE_TOP_BUDGET_AMOUNT_EVALUATOR_CLS_NAME(post) evaluator(*services);
 
     dev_committee_object dev_committee = create_object<dev_committee_object>(shm);
 
-    BOOST_CHECK_NE(dev_committee.top_budgets_amount, op.amount);
+    BOOST_CHECK_NE(dev_committee.top_budgets_amounts.at(budget_type::post), op.amount);
 
     mocks
         .ExpectCallOverload(dev_pool_service,
@@ -70,7 +70,7 @@ BOOST_FIXTURE_TEST_CASE(change_top_budgets_amount, fixture)
 
     BOOST_CHECK_NO_THROW(evaluator.do_apply(op));
 
-    BOOST_CHECK_EQUAL(dev_committee.top_budgets_amount, op.amount);
+    BOOST_CHECK_EQUAL(dev_committee.top_budgets_amounts.at(budget_type::post), op.amount);
 }
 
 } // namespace development_committee_top_budgets_evaluator_tests

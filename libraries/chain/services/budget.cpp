@@ -58,16 +58,18 @@ dbs_budget::budget_refs_type dbs_budget::get_budgets() const
     FC_CAPTURE_AND_RETHROW(())
 }
 
-dbs_budget::budget_refs_type dbs_budget::get_top_budgets(const uint16_t limit) const
+dbs_budget::budget_refs_type dbs_budget::get_top_budgets(const budget_type type, const uint16_t limit) const
 {
     try
     {
         budget_refs_type ret;
 
-        const auto& idx = db_impl().get_index<budget_index>().indices().get<by_per_block>();
+        const auto& idx = db_impl().get_index<budget_index, by_per_block>();
+
+        auto idx_rng = idx.equal_range(type);
 
         uint16_t selected = 0;
-        for (auto it = idx.cbegin(), it_end = idx.cend(); it != it_end; ++it)
+        for (auto it = idx_rng.first; it != idx_rng.second; ++it)
         {
             if (_is_fund_budget(*it))
                 continue;
@@ -122,10 +124,27 @@ const budget_object& dbs_budget::create_fund_budget(const asset& balance, const 
     return _create_budget(SCORUM_ROOT_POST_PARENT_ACCOUNT, balance.amount, start_date, deadline, "");
 }
 
-const budget_object& dbs_budget::create_budget(const account_object& owner,
-                                               const asset& balance,
-                                               const time_point_sec& deadline,
-                                               const std::string& content_permlink)
+const budget_object& dbs_budget::create_post_budget(const account_object& owner,
+                                                    const asset& balance,
+                                                    const time_point_sec& deadline,
+                                                    const std::string& content_permlink)
+{
+    return _create_owned_budget(budget_type::post, owner, balance, deadline, content_permlink);
+}
+
+const budget_object& dbs_budget::create_banner_budget(const account_object& owner,
+                                                      const asset& balance,
+                                                      const time_point_sec& deadline,
+                                                      const std::string& content_permlink)
+{
+    return _create_owned_budget(budget_type::banner, owner, balance, deadline, content_permlink);
+}
+
+const budget_object& dbs_budget::_create_owned_budget(const budget_type type,
+                                                      const account_object& owner,
+                                                      const asset& balance,
+                                                      const time_point_sec& deadline,
+                                                      const std::string& content_permlink)
 {
     dbs_account& account_service = db().obtain_service<dbs_account>();
     dbs_dynamic_global_property& dgp_service = db().obtain_service<dbs_dynamic_global_property>();
@@ -144,7 +163,7 @@ const budget_object& dbs_budget::create_budget(const account_object& owner,
     // clang-format on
 
     const budget_object& new_budget
-        = _create_budget(owner.name, balance.amount, start_date, deadline, content_permlink);
+        = _create_budget(owner.name, balance.amount, start_date, deadline, content_permlink, type);
 
     account_service.decrease_balance(owner, balance);
 
@@ -157,7 +176,8 @@ const budget_object& dbs_budget::_create_budget(const account_name_type& owner,
                                                 const share_type& balance,
                                                 const time_point_sec& start_date,
                                                 const time_point_sec& end_date,
-                                                const std::string& content_permlink)
+                                                const std::string& content_permlink,
+                                                const optional<budget_type>& ptype)
 {
     auto per_block = _calculate_per_block(start_date, end_date, balance);
 
@@ -168,6 +188,10 @@ const budget_object& dbs_budget::_create_budget(const account_name_type& owner,
     auto last_cashout_block = head_block_num + advance;
 
     return create([&](budget_object& budget) {
+        if (ptype.valid())
+        {
+            budget.type = (*ptype);
+        }
         budget.owner = owner;
         fc::from_string(budget.content_permlink, content_permlink);
         budget.created = start_date;

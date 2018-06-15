@@ -2440,16 +2440,18 @@ std::vector<budget_api_obj> wallet_api::get_budgets(const std::string& account_n
     return result;
 }
 
-annotated_signed_transaction wallet_api::create_budget(const std::string& budget_owner,
-                                                       const std::string& content_permlink,
-                                                       const asset& balance,
-                                                       const time_point_sec deadline,
-                                                       const bool broadcast)
+annotated_signed_transaction wallet_api::_create_budget(budget_for_type type,
+                                                        const std::string& budget_owner,
+                                                        const std::string& content_permlink,
+                                                        const asset& balance,
+                                                        const time_point_sec deadline,
+                                                        const bool broadcast)
 {
     FC_ASSERT(!is_locked());
 
     create_budget_operation op;
 
+    op.type = type;
     op.owner = budget_owner;
     op.content_permlink = content_permlink;
     op.balance = balance;
@@ -2460,6 +2462,26 @@ annotated_signed_transaction wallet_api::create_budget(const std::string& budget
     tx.validate();
 
     return my->sign_transaction(tx, broadcast);
+}
+
+annotated_signed_transaction wallet_api::create_budget_for_posts(const std::string& budget_owner,
+                                                                 const std::string& content_permlink,
+                                                                 const asset& balance,
+                                                                 const time_point_sec deadline,
+                                                                 const bool broadcast)
+{
+    return _create_budget(budget_for_type::budget_for_posts, budget_owner, content_permlink, balance, deadline,
+                          broadcast);
+}
+
+annotated_signed_transaction wallet_api::create_budget_for_banners(const std::string& budget_owner,
+                                                                   const std::string& content_permlink,
+                                                                   const asset& balance,
+                                                                   const time_point_sec deadline,
+                                                                   const bool broadcast)
+{
+    return _create_budget(budget_for_type::budget_for_banners, budget_owner, content_permlink, balance, deadline,
+                          broadcast);
 }
 
 annotated_signed_transaction
@@ -2730,12 +2752,25 @@ annotated_signed_transaction wallet_api::development_pool_withdraw_vesting(const
     return my->sign_transaction(tx, broadcast);
 }
 
-annotated_signed_transaction wallet_api::development_pool_top_budget(const std::string& initiator,
-                                                                     uint16_t amount,
-                                                                     uint32_t lifetime_sec,
-                                                                     bool broadcast)
+annotated_signed_transaction wallet_api::development_pool_top_post_budget(const std::string& initiator,
+                                                                          uint16_t amount,
+                                                                          uint32_t lifetime_sec,
+                                                                          bool broadcast)
 {
-    using operation_type = development_committee_change_top_budgets_amount_operation;
+    using operation_type = SCORUM_MAKE_TOP_BUDGET_AMOUNT_OPERATION_CLS_NAME(post);
+
+    signed_transaction tx
+        = proposal<operation_type>(initiator, lifetime_sec, [&](operation_type& o) { o.amount = amount; });
+
+    return my->sign_transaction(tx, broadcast);
+}
+
+annotated_signed_transaction wallet_api::development_pool_top_banner_budget(const std::string& initiator,
+                                                                            uint16_t amount,
+                                                                            uint32_t lifetime_sec,
+                                                                            bool broadcast)
+{
+    using operation_type = SCORUM_MAKE_TOP_BUDGET_AMOUNT_OPERATION_CLS_NAME(banner);
 
     signed_transaction tx
         = proposal<operation_type>(initiator, lifetime_sec, [&](operation_type& o) { o.amount = amount; });

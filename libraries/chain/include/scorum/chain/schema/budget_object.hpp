@@ -24,6 +24,8 @@ public:
 
     id_type id;
 
+    budget_type type = budget_type::internal;
+
     account_name_type owner;
     fc::shared_string content_permlink;
 
@@ -61,18 +63,22 @@ typedef shared_multi_index_container<budget_object,
                                                 ordered_unique<tag<by_per_block>,
                                                                composite_key<budget_object,
                                                                              member<budget_object,
+                                                                                    budget_type,
+                                                                                    &budget_object::type>,
+                                                                             member<budget_object,
                                                                                     share_type,
                                                                                     &budget_object::per_block>,
                                                                              member<budget_object,
                                                                                     budget_id_type,
                                                                                     &budget_object::id>>,
-                                                               composite_key_compare<std::greater<share_type>,
+                                                               composite_key_compare<std::less<budget_type>,
+                                                                                     std::greater<share_type>,
                                                                                      std::less<budget_id_type>>>>>
     budget_index;
 } // namespace chain
 } // namespace scorum
 
 FC_REFLECT(scorum::chain::budget_object,
-           (id)(owner)(content_permlink)(created)(deadline)(balance)(per_block)(last_cashout_block))
+           (id)(type)(owner)(content_permlink)(created)(deadline)(balance)(per_block)(last_cashout_block))
 
 CHAINBASE_SET_INDEX_TYPE(scorum::chain::budget_object, scorum::chain::budget_index)

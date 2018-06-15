@@ -37,7 +37,10 @@ struct database_budget_integration_fixture : public database_trx_integration_fix
         bool is_pushed = false;
     };
 
-    advertising_budget_op create_advertising_budget(Actor& actor, asset balance, fc::time_point_sec deadline);
+    advertising_budget_op create_advertising_budget(const budget_type type,
+                                                    Actor& actor,
+                                                    const asset& balance,
+                                                    const fc::time_point_sec& deadline);
 
 private:
     std::string get_unique_permlink();

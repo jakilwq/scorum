@@ -58,7 +58,7 @@ public:
         static int next_permlink_id = 0;
         std::stringstream permplink;
         permplink << owner.name << '_' << ++next_permlink_id;
-        return budget_service.create_budget(owner, balance, deadline, permplink.str());
+        return budget_service.create_post_budget(owner, balance, deadline, permplink.str());
     }
 
     dbs_budget& budget_service;
