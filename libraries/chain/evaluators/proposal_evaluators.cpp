@@ -54,7 +54,7 @@ void development_committee_withdraw_vesting_evaluator::do_apply(
         auto& dev_pool = this->db().dev_pool_service();                                                                \
                                                                                                                        \
         dev_pool.update([&](dev_committee_object& com) {                                                               \
-            com.top_budgets_amounts.insert(std::make_pair(SCORUM_MAKE_BUDGET_TYPE_NAME(TYPE), o.amount));              \
+            com.top_budgets_amounts.at(SCORUM_MAKE_BUDGET_TYPE_NAME(TYPE)) = o.amount;                                 \
         });                                                                                                            \
     }
 

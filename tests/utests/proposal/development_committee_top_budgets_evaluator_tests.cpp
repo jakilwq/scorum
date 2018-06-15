@@ -52,15 +52,23 @@ struct fixture : public shared_memory_fixture
 
 BOOST_FIXTURE_TEST_CASE(change_top_budgets_amount, fixture)
 {
+    static const budget_type testing_type = budget_type::post;
+    static const uint16_t initial_amoount = 111;
+    static const uint16_t new_amoount = 222;
+
     SCORUM_MAKE_TOP_BUDGET_AMOUNT_OPERATION_CLS_NAME(post)::operation_type op;
 
-    op.amount = 111;
+    BOOST_CHECK_NE(initial_amoount, new_amoount);
+
+    op.amount = new_amoount;
 
     SCORUM_MAKE_TOP_BUDGET_AMOUNT_EVALUATOR_CLS_NAME(post) evaluator(*services);
 
-    dev_committee_object dev_committee = create_object<dev_committee_object>(shm);
+    dev_committee_object dev_committee = create_object<dev_committee_object>(shm, [](dev_committee_object& pool) {
+        pool.top_budgets_amounts.insert(std::make_pair(testing_type, initial_amoount));
+    });
 
-    BOOST_CHECK_NE(dev_committee.top_budgets_amounts.at(budget_type::post), op.amount);
+    BOOST_CHECK_EQUAL(dev_committee.top_budgets_amounts.at(testing_type), initial_amoount);
 
     mocks
         .ExpectCallOverload(dev_pool_service,
@@ -70,7 +78,7 @@ BOOST_FIXTURE_TEST_CASE(change_top_budgets_amount, fixture)
 
     BOOST_CHECK_NO_THROW(evaluator.do_apply(op));
 
-    BOOST_CHECK_EQUAL(dev_committee.top_budgets_amounts.at(budget_type::post), op.amount);
+    BOOST_CHECK_EQUAL(dev_committee.top_budgets_amounts.at(testing_type), op.amount);
 }
 
 } // namespace development_committee_top_budgets_evaluator_tests
