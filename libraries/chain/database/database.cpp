@@ -198,8 +198,9 @@ void database::open(const fc::path& data_dir,
             init_hardforks(genesis_state.initial_timestamp); // Writes to local state, but reads from db
         });
     }
-    catch (fc::assert_exception&)
+    catch (fc::assert_exception& e)
     {
+        elog("${what}", ("what", e.to_detail_string()));
         reindex(data_dir, shared_mem_dir, shared_file_size, get_reindex_skip_flags(), genesis_state);
     }
     FC_CAPTURE_LOG_AND_RETHROW((data_dir)(shared_mem_dir)(shared_file_size))
@@ -1949,11 +1950,11 @@ void database::init_hardforks(time_point_sec genesis_time)
     _hardfork_times[0] = genesis_time;
     _hardfork_versions[0] = hardfork_version(0, 0);
 
-    // SCORUM: structure to initialize hardofrks
+    // SCORUM: structure to initialize hardforks
 
-    // FC_ASSERT( SCORUM_HARDFORK_0_1 == 1, "Invalid hardfork configuration" );
-    //_hardfork_times[ SCORUM_HARDFORK_0_1 ] = fc::time_point_sec( SCORUM_HARDFORK_0_1_TIME );
-    //_hardfork_versions[ SCORUM_HARDFORK_0_1 ] = SCORUM_HARDFORK_0_1_VERSION;
+    FC_ASSERT(SCORUM_HARDFORK_0_1 == 1, "Invalid hardfork configuration");
+    _hardfork_times[SCORUM_HARDFORK_0_1] = fc::time_point_sec(SCORUM_HARDFORK_0_1_TIME);
+    _hardfork_versions[SCORUM_HARDFORK_0_1] = SCORUM_HARDFORK_0_1_VERSION;
 
     const auto& hardforks = obtain_service<dbs_hardfork_property>().get();
     FC_ASSERT(hardforks.last_hardfork <= SCORUM_NUM_HARDFORKS, "Chain knows of more hardforks than configuration",
@@ -2018,6 +2019,8 @@ void database::apply_hardfork(uint32_t hardfork)
 
     switch (hardfork)
     {
+    case SCORUM_HARDFORK_0_1:
+        break;
     default:
         break;
     }

@@ -8,6 +8,7 @@
 #include <scorum/chain/services/reward_balancer.hpp>
 #include <scorum/chain/services/reward_funds.hpp>
 #include <scorum/chain/services/witness.hpp>
+#include <scorum/chain/services/hardfork_property.hpp>
 
 #include <scorum/chain/schema/account_objects.hpp>
 #include <scorum/chain/schema/dynamic_global_property_object.hpp>
@@ -33,6 +34,7 @@ void process_funds::on_apply(block_task_context& ctx)
     content_reward_scr_service_i& content_reward_service = services.content_reward_scr_service();
     budget_service_i& budget_service = services.budget_service();
     dev_pool_service_i& dev_service = services.dev_pool_service();
+    hardfork_property_service_i& hardfork_service = services.hardfork_property_service();
 
     // We don't have inflation.
     // We just get per block reward from original reward fund(4.8M SP)
@@ -45,7 +47,26 @@ void process_funds::on_apply(block_task_context& ctx)
         const budget_object& budget = budget_service.get_fund_budget();
         original_fund_reward += budget_service.allocate_cash(budget);
     }
-    distribute_reward(ctx, original_fund_reward); // distribute SP
+
+    if (hardfork_service.get().processed_hardforks.size() > SCORUM_HARDFORK_0_1)
+    {
+        distribute_reward(ctx, original_fund_reward); // distribute SP
+    }
+    else
+    {
+        dynamic_global_property_service_i& dgp_service = services.dynamic_global_property_service();
+
+        // pay all to witnesses
+        asset witness_reward = original_fund_reward;
+
+        process_witness_reward_in_sp_migration().adjust_witness_reward(ctx, witness_reward);
+
+        distribute_witness_reward(ctx, witness_reward);
+
+        dgp_service.update([&](dynamic_global_property_object& p) {
+            p.circulating_capital += asset(original_fund_reward.amount, SCORUM_SYMBOL);
+        });
+    }
 
     asset advertising_budgets_reward = asset(0, SCORUM_SYMBOL);
     for (const budget_object& budget : budget_service.get_budgets())
@@ -258,8 +279,10 @@ const asset process_funds::get_activity_reward(block_task_context& ctx, const as
 
 bool process_funds::apply_mainnet_schedule_crutches(block_task_context& ctx)
 {
-    // We have bug on mainnet: signed_block was applied, but undo_session wasn't pushed, therefore DB state roll backed
-    // and witnesses were not rewarded. It leads us to mismatching of schedule for working and newly synced nodes. Next
+    // We have bug on mainnet: signed_block was applied, but undo_session wasn't pushed, therefore DB state roll
+    // backed
+    // and witnesses were not rewarded. It leads us to mismatching of schedule for working and newly synced nodes.
+    // Next
     // code fixes it.
     if (ctx.block_num() == 1650380 || // fix reward for headshot witness
         ctx.block_num() == 1808664) // fix reward for addit-yury witness

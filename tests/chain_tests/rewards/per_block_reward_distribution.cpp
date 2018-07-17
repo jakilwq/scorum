@@ -56,25 +56,25 @@ public:
 
 BOOST_FIXTURE_TEST_SUITE(reward_distribution, reward_distribution::dbs_reward_fixture)
 
-SCORUM_TEST_CASE(check_per_block_reward_distribution_with_fund_budget_only)
-{
-    generate_block();
-
-    const auto& fund_budget = budget_service.get_fund_budget();
-    asset initial_per_block_reward = fund_budget.per_block;
-
-    auto witness_reward = initial_per_block_reward * SCORUM_WITNESS_PER_BLOCK_REWARD_PERCENT / SCORUM_100_PERCENT;
-    auto active_voters_reward
-        = initial_per_block_reward * SCORUM_ACTIVE_SP_HOLDERS_PER_BLOCK_REWARD_PERCENT / SCORUM_100_PERCENT;
-    auto content_reward = initial_per_block_reward - witness_reward - active_voters_reward;
-
-    const auto& account = account_service.get_account(TEST_INIT_DELEGATE_NAME);
-
-    BOOST_REQUIRE_EQUAL(dev_service.get().scr_balance, NULL_BALANCE);
-    BOOST_REQUIRE_EQUAL(content_reward_fund_sp_service.get().activity_reward_balance, content_reward);
-    BOOST_REQUIRE_EQUAL(account.scorumpower, witness_reward);
-    BOOST_REQUIRE_EQUAL(voters_reward_sp_service.get().balance, active_voters_reward);
-}
+// SCORUM_TEST_CASE(check_per_block_reward_distribution_with_fund_budget_only)
+//{
+//    generate_block();
+//
+//    const auto& fund_budget = budget_service.get_fund_budget();
+//    asset initial_per_block_reward = fund_budget.per_block;
+//
+//    auto witness_reward = initial_per_block_reward * SCORUM_WITNESS_PER_BLOCK_REWARD_PERCENT / SCORUM_100_PERCENT;
+//    auto active_voters_reward
+//        = initial_per_block_reward * SCORUM_ACTIVE_SP_HOLDERS_PER_BLOCK_REWARD_PERCENT / SCORUM_100_PERCENT;
+//    auto content_reward = initial_per_block_reward - witness_reward - active_voters_reward;
+//
+//    const auto& account = account_service.get_account(TEST_INIT_DELEGATE_NAME);
+//
+//    BOOST_REQUIRE_EQUAL(dev_service.get().scr_balance, NULL_BALANCE);
+//    BOOST_REQUIRE_EQUAL(content_reward_fund_sp_service.get().activity_reward_balance, content_reward);
+//    BOOST_REQUIRE_EQUAL(account.scorumpower, witness_reward);
+//    BOOST_REQUIRE_EQUAL(voters_reward_sp_service.get().balance, active_voters_reward);
+//}
 
 SCORUM_TEST_CASE(check_per_block_reward_distribution_with_advertising_budget)
 {
