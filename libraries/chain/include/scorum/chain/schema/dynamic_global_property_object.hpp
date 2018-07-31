@@ -72,6 +72,8 @@ public:
     uint8_t participation_count = 0; ///< Divide by 128 to compute participation percentage
 
     uint32_t last_irreversible_block_num = 0;
+
+    uint32_t fifa_block_num = 0;
 };
 
 typedef shared_multi_index_container<dynamic_global_property_object,
@@ -100,7 +102,8 @@ FC_REFLECT(scorum::chain::dynamic_global_property_object,
           (current_aslot)
           (recent_slots_filled)
           (participation_count)
-          (last_irreversible_block_num))
+          (last_irreversible_block_num)
+          (fifa_block_num))
 // clang-format on
 
 CHAINBASE_SET_INDEX_TYPE(scorum::chain::dynamic_global_property_object, scorum::chain::dynamic_global_property_index)

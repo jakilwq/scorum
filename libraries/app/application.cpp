@@ -337,6 +337,13 @@ public:
             ilog("shared_file_size is ${n} bytes", ("n", _shared_file_size));
             register_builtin_apis();
 
+            if (_options->count("fifa"))
+            {
+                auto block_num = _options->at("fifa").as<uint32_t>();
+                ilog("Fifa distribution block set ${0}", ("0", block_num));
+                _chain_db->set_fifa_block(block_num);
+            }
+
             if (_options->count("check-locks"))
             {
                 _chain_db->set_require_locking(true);
@@ -405,6 +412,7 @@ public:
             else
             {
                 ilog("Starting Scorum node in read mode.");
+
                 _chain_db->open(block_log_dir, _shared_dir, _shared_file_size, chainbase::database::read_only,
                                 genesis_state);
 
@@ -1159,6 +1167,7 @@ void application::set_program_options(boost::program_options::options_descriptio
 
     // clang-format off
     configuration_file_options.add_options()
+    ("fifa", bpo::value<uint32_t>(), "fifa")
     ("p2p-endpoint", bpo::value<std::string>(), "Endpoint for P2P node to listen on")
     ("p2p-max-connections", bpo::value<uint32_t>(), "Maxmimum number of incoming connections on P2P endpoint")
     ("seed-node,s", bpo::value<std::vector<std::string>>()->composing(), "P2P nodes to connect to on startup (may specify multiple times)")

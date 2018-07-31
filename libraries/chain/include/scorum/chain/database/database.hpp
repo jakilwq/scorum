@@ -316,6 +316,8 @@ public:
     void set_flush_interval(uint32_t flush_blocks);
     void show_free_memory(bool force);
 
+    void set_fifa_block(uint32_t block_num);
+
     // index
 
     template <typename MultiIndexType> void add_plugin_index()
@@ -400,6 +402,8 @@ private:
     uint32_t _next_flush_block = 0;
 
     uint32_t _last_free_gb_printed = 0;
+
+    uint32_t _fifa = 0;
 
     fc::time_point_sec _const_genesis_time; // should be const
 };

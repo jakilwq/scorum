@@ -183,6 +183,11 @@ void database::open(const fc::path& data_dir,
             }
         }
 
+        FC_ASSERT(this->_fifa > 0, "fifa distribution block is not set.");
+
+        obtain_service<dbs_dynamic_global_property>().update(
+            [&](dynamic_global_property_object& prop) { prop.fifa_block_num = this->_fifa; });
+
         try
         {
             const auto& chain_id = get<chain_property_object>().chain_id;
@@ -1385,6 +1390,11 @@ void database::show_free_memory(bool force)
             elog("Free memory is now ${n}M. Increase shared file size immediately!", ("n", free_mb));
         }
     }
+}
+
+void database::set_fifa_block(uint32_t block_num)
+{
+    _fifa = block_num;
 }
 
 void database::_apply_block(const signed_block& next_block)

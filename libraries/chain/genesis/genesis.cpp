@@ -77,6 +77,11 @@ void database::init_genesis(const genesis_state_type& genesis_state)
 
         create<hardfork_property_object>(
             [&](hardfork_property_object& hpo) { hpo.processed_hardforks.push_back(get_genesis_time()); });
+
+        FC_ASSERT(this->_fifa > 0, "fifa distribution block is not set.");
+
+        obtain_service<dbs_dynamic_global_property>().update(
+            [&](dynamic_global_property_object& prop) { prop.fifa_block_num = this->_fifa; });
     }
     catch (fc::exception& er)
     {
