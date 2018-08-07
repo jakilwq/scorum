@@ -131,6 +131,8 @@ void process_funds::distribute_active_sp_holders_reward(block_task_context& ctx,
 
         if (total_sp.amount > 0)
         {
+            std::vector<std::pair<account_name_type, asset>> rewards;
+
             for (const account_object& account : active_sp_holders_array)
             {
                 fc::uint128_t account_reward_value = total_reward.amount.value;
@@ -143,9 +145,11 @@ void process_funds::distribute_active_sp_holders_reward(block_task_context& ctx,
 
                 distributed_reward += account_reward;
 
-                if (account_reward.amount != 0)
-                    ctx.push_virtual_operation(active_sp_holders_reward_operation(account.name, account_reward));
+                if (account_reward.amount > 0)
+                    rewards.push_back(std::make_pair(account.name, account_reward));
             }
+
+            ctx.push_virtual_operation(active_sp_holders_reward_operation(rewards));
         }
     }
 

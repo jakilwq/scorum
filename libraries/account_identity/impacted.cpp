@@ -230,7 +230,10 @@ struct get_impacted_account_visitor
 
     void operator()(const active_sp_holders_reward_operation& op)
     {
-        _impacted.insert(op.sp_holder);
+        for (auto a : op.holders_reward)
+        {
+            _impacted.insert(a.first);
+        }
     }
 
     void operator()(const return_scorumpower_delegation_operation& op)

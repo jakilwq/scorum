@@ -272,14 +272,12 @@ struct active_sp_holders_reward_operation : public virtual_operation
     active_sp_holders_reward_operation()
     {
     }
-    active_sp_holders_reward_operation(const std::string& h, const asset& v)
-        : sp_holder(h)
-        , reward(v)
+    active_sp_holders_reward_operation(const std::vector<std::pair<account_name_type, asset>>& reward)
+        : holders_reward(reward)
     {
     }
 
-    account_name_type sp_holder;
-    asset reward; // in SCR or SP
+    std::vector<std::pair<account_name_type, asset>> holders_reward;
 };
 
 struct expired_contract_refund_operation : public virtual_operation
@@ -322,7 +320,7 @@ FC_REFLECT(scorum::protocol::comment_payout_update_operation, (author)(permlink)
 FC_REFLECT(scorum::protocol::return_scorumpower_delegation_operation, (account)(scorumpower))
 FC_REFLECT(scorum::protocol::comment_benefactor_reward_operation, (benefactor)(author)(permlink)(reward))
 FC_REFLECT(scorum::protocol::producer_reward_operation, (producer)(reward))
-FC_REFLECT(scorum::protocol::active_sp_holders_reward_operation, (sp_holder)(reward))
+FC_REFLECT(scorum::protocol::active_sp_holders_reward_operation, (holders_reward))
 FC_REFLECT(scorum::protocol::expired_contract_refund_operation, (owner)(refund))
 FC_REFLECT(scorum::protocol::acc_finished_vesting_withdraw_operation, (from_account))
 FC_REFLECT_EMPTY(scorum::protocol::devpool_finished_vesting_withdraw_operation)
