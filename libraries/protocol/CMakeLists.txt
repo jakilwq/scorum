@@ -1,4 +1,4 @@
-file(GLOB HEADERS "include/scorum/protocol/*.hpp")
+file(GLOB_RECURSE HEADERS "include/scorum/protocol/*.hpp")
 
 ## SORT .cpp by most likely to change / break compile
 add_library( scorum_protocol

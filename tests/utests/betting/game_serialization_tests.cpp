@@ -3,6 +3,7 @@
 #include <scorum/protocol/operations.hpp>
 #include <scorum/protocol/betting/game.hpp>
 #include <scorum/protocol/betting/market.hpp>
+#include <scorum/protocol/betting/market2.hpp>
 #include <scorum/protocol/betting/wincase.hpp>
 #include <scorum/protocol/betting/wincase_serialization.hpp>
 #include <scorum/protocol/betting/game_serialization.hpp>
@@ -256,6 +257,58 @@ SCORUM_TEST_CASE(update_game_markets_binary_deserialization_test)
     auto obj = fc::raw::unpack<update_game_markets_operation>(buffer, sizeof(buffer));
 
     validate_update_game_markets_operation(obj);
+}
+
+BOOST_AUTO_TEST_SUITE_END()
+
+BOOST_FIXTURE_TEST_SUITE(betting2_tests, game_serialization_test_fixture)
+
+SCORUM_TEST_CASE(create_game_with_total_market)
+{
+    using namespace scorum::protocol::betting::next;
+
+    create_game_op op;
+
+    op.markets = { markets::total_market({ 500 }), markets::total_market({ 1000 }) };
+
+    BOOST_CHECK_EQUAL(fc::json::to_string(op), R"({"markets":[[0,{}]]})");
+}
+
+SCORUM_TEST_CASE(create_game_with_winner_market)
+{
+    using namespace scorum::protocol::betting::next;
+
+    create_game_op op;
+
+    op.markets = { markets::winner_market({}) };
+
+    BOOST_CHECK_EQUAL(fc::json::to_string(op), R"({"markets":[[1,{}]]})");
+}
+
+SCORUM_TEST_CASE(post_bet)
+{
+    //    using namespace scorum::protocol::betting::next;
+
+    //    post_bet_op op;
+
+    //    markets::total_market total_market({ 500 });
+
+    //    op.wincase = total_market.get_wincase<wincases::over>();
+
+    //    BOOST_CHECK_EQUAL(fc::json::to_string(op), R"({"markets":[[1,{}]]})");
+}
+
+SCORUM_TEST_CASE(post_game_results)
+{
+    using namespace scorum::protocol::betting::next;
+
+    //    post_game_results_op op;
+
+    auto x = markets::total_market({ 500 }).wincase<wincases::over>();
+
+    //    op.wincase = total_market.get_wincase<wincases::over>();
+
+    //    BOOST_CHECK_EQUAL(fc::json::to_string(op), R"({"markets":[[1,{}]]})");
 }
 
 BOOST_AUTO_TEST_SUITE_END()
